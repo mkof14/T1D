@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vercel/
+.env.local
+.env.production
+.env
+server/data/*.json
+.vite/
+*.log
+.DS_Store
