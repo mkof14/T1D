@@ -1,13 +1,29 @@
 import React, { useState } from 'react';
 import { joinHousehold, saveHousehold, type HouseholdProfile } from '../lib/api';
-import { ROLE_LABELS, RTL_LANGUAGES, type Language, type UserRole } from '../types';
+import { DIABETES_TYPE_COPY, diabetesTypeKey } from '../content/diabetes-type-copy';
+import { MEMBER_PATH_COPY, TYPE2_SETUP_FIELDS } from '../content/member-path-copy';
+import { WORKSPACE_T2_LABELS } from '../content/workspace-t2-labels';
+import { readSignupDiabetesType } from '../lib/signup-diabetes-type';
+import { getRoleLabels } from '../lib/role-labels';
+import { MEMBER_CHROME_COPY } from '../content/member-chrome-copy';
+import { buildPublicSiteChrome } from '../lib/public-site-chrome';
+import { RTL_LANGUAGES, type DiabetesType, type Language, type UserRole } from '../types';
+import { t1dBtnPrimary, t1dCard, t1dInput, t1dMemberLayout, t1dSoftLabel } from '../lib/t1d-ui';
+import { PageHeroBanner } from './layout/PageHeroBanner';
+import { MemberZoneShell } from './layout/MemberZoneShell';
+import { createInitialHouseholdForm, HouseholdSetupFields } from './HouseholdSetupFields';
+import { memberLayoutTypeClass } from '../lib/hero-path';
 
 interface HouseholdSetupViewProps {
   lang: Language;
+  setLang: (lang: Language) => void;
   theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
   role: UserRole;
   fullName: string;
   onComplete: (household: HouseholdProfile) => void;
+  onBack?: () => void;
+  onSignUp: (type: DiabetesType) => void;
 }
 
 const COPY: Record<Language, {
@@ -274,9 +290,6 @@ const COPY: Record<Language, {
   },
 };
 
-const tone =
-  'h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-sky-400 dark:focus:ring-sky-900';
-
 const FLOW_COPY: Record<Language, {
   create: string;
   join: string;
@@ -299,23 +312,43 @@ const FLOW_COPY: Record<Language, {
   ar: { create: 'إنشاء العائلة', join: 'الانضمام', joinTitle: 'الانضمام إلى عائلة موجودة', joinSubtitle: 'استخدم رمز الدعوة من العائلة حتى ينضم هذا الحساب إلى العائلة نفسها.', inviteCode: 'رمز الدعوة', invitePlaceholder: 'AB12CD', joinAction: 'الانضمام عبر الرمز' },
 };
 
-export const HouseholdSetupView: React.FC<HouseholdSetupViewProps> = ({ lang, theme, role, fullName, onComplete }) => {
+const PRESET_COPY: Record<Language, { locked: string }> = {
+  en: { locked: 'Chosen on the home page. Thresholds and support stay on this path.' },
+  ru: { locked: 'Выбрано на главной странице. Пороги и поддержка остаются на этом пути.' },
+  uk: { locked: 'Обрано на головній сторінці. Пороги та підтримка залишаються на цьому шляху.' },
+  es: { locked: 'Elegido en la página principal. Umbrales y apoyo permanecen en este camino.' },
+  fr: { locked: 'Choisi sur la page d’accueil. Seuils et soutien restent sur ce parcours.' },
+  de: { locked: 'Auf der Startseite gewählt. Schwellen und Unterstützung bleiben auf diesem Weg.' },
+  zh: { locked: '已在首页选择。阈值和支持保持在此路径。' },
+  ja: { locked: 'ホームで選択済み。このパスのしきい値とサポートが維持されます。' },
+  pt: { locked: 'Escolhido na página inicial. Limites e apoio permanecem neste caminho.' },
+  he: { locked: 'נבחר בדף הבית. הספים והתמיכה נשארים במסלול הזה.' },
+  ar: { locked: 'تم الاختيار في الصفحة الرئيسية. العتبات والدعم يبقيان على هذا المسار.' },
+};
+
+export const HouseholdSetupView: React.FC<HouseholdSetupViewProps> = ({
+  lang,
+  setLang,
+  theme,
+  setTheme,
+  role,
+  fullName,
+  onComplete,
+  onBack,
+  onSignUp,
+}) => {
   const copy = COPY[lang];
   const flowCopy = FLOW_COPY[lang];
   const isRTL = RTL_LANGUAGES.includes(lang);
-  const roleName = ROLE_LABELS[lang][role];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [presetType] = useState<DiabetesType | null>(() => readSignupDiabetesType());
+  const roleName = getRoleLabels(lang, presetType ?? 'type1')[role];
+  const [diabetesType, setDiabetesType] = useState<DiabetesType>(() => presetType ?? 'type1');
+  const pathCopy = presetType ? MEMBER_PATH_COPY[lang].setup[presetType] : null;
+  const [form, setForm] = useState(() => createInitialHouseholdForm(lang, role, fullName, presetType));
   const [flow, setFlow] = useState<'create' | 'join'>(role === 'caregiver' ? 'join' : 'create');
   const [inviteCode, setInviteCode] = useState('');
-  const [form, setForm] = useState({
-    householdName: copy.placeholders.householdName,
-    childName: role === 'child' ? fullName : copy.placeholders.childName,
-    childAgeBand: copy.placeholders.childAgeBand,
-    primaryParent: role === 'parent' ? fullName : copy.placeholders.primaryParent,
-    caregiverName: role === 'caregiver' ? fullName : copy.placeholders.caregiverName,
-    nightWindow: copy.placeholders.nightWindow,
-  });
 
   const setField = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -323,8 +356,11 @@ export const HouseholdSetupView: React.FC<HouseholdSetupViewProps> = ({ lang, th
     event.preventDefault();
     setBusy(true);
     setError('');
+    const useJoin = Boolean(inviteCode.trim());
     try {
-      const response = flow === 'join' ? await joinHousehold({ inviteCode }) : await saveHousehold(form);
+      const response = useJoin
+        ? await joinHousehold({ inviteCode: inviteCode.trim().toUpperCase() })
+        : await saveHousehold({ ...form, diabetesType });
       onComplete(response.household);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Request failed');
@@ -333,83 +369,84 @@ export const HouseholdSetupView: React.FC<HouseholdSetupViewProps> = ({ lang, th
     }
   };
 
+  const softLabelClass = t1dSoftLabel(theme);
+  const memberCopy = MEMBER_CHROME_COPY[lang];
+  const publicCopy = buildPublicSiteChrome(lang).copy;
+
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} className={`min-h-screen ${theme === 'dark' ? 'bg-[#09111a] text-slate-100' : 'bg-[#f3f8fb] text-slate-900'}`}>
-      <div className="mx-auto max-w-[980px] px-4 py-8 md:px-6 md:py-10">
-        <section className={`rounded-[2.2rem] border p-7 md:p-9 ${theme === 'dark' ? 'border-slate-800 bg-slate-950/80' : 'border-slate-200 bg-white/96'} ${isRTL ? 'text-right' : 'text-left'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-700 dark:text-sky-300">{copy.eyebrow}</p>
-          <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">{copy.title}</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-            {flow === 'join' ? flowCopy.joinSubtitle : `${copy.subtitle} ${roleName}.`}
-          </p>
-
-          <div className={`mt-8 flex flex-wrap gap-3 ${isRTL ? 'justify-end' : 'justify-start'}`}>
-            <button
-              type="button"
-              onClick={() => setFlow('create')}
-              className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${
-                flow === 'create'
-                  ? theme === 'dark' ? 'bg-sky-300 text-slate-950' : 'bg-slate-950 text-white'
-                  : theme === 'dark' ? 'border border-slate-700 bg-slate-950 text-slate-200' : 'border border-slate-300 bg-white text-slate-700'
-              }`}
-            >
-              {flowCopy.create}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFlow('join')}
-              className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${
-                flow === 'join'
-                  ? theme === 'dark' ? 'bg-sky-300 text-slate-950' : 'bg-slate-950 text-white'
-                  : theme === 'dark' ? 'border border-slate-700 bg-slate-950 text-slate-200' : 'border border-slate-300 bg-white text-slate-700'
-              }`}
-            >
-              {flowCopy.join}
-            </button>
-          </div>
-
-          <form className="mt-8 grid gap-5 md:grid-cols-2" onSubmit={handleSubmit}>
-            {flow === 'join' ? (
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{flowCopy.inviteCode}</label>
+    <MemberZoneShell
+      lang={lang}
+      setLang={setLang}
+      theme={theme}
+      setTheme={setTheme}
+      isRTL={isRTL}
+      diabetesType={presetType}
+      activePageLabel={memberCopy.activeSetup}
+      accountLabel={publicCopy.signIn}
+      onAccountAction={() => onBack?.()}
+      onBackToPublic={() => onBack?.()}
+      onSignUp={onSignUp}
+    >
+      <div className={`${t1dMemberLayout()} ${memberLayoutTypeClass(presetType)} relative`}>
+        <div className="t1d-auth-layout__hero">
+        <PageHeroBanner
+          variant="setup"
+          theme={theme}
+          isRTL={isRTL}
+          compact
+          bleed={false}
+          diabetesType={presetType}
+          eyebrow={presetType ? MEMBER_PATH_COPY[lang].badge[presetType] : copy.eyebrow}
+          title={pathCopy?.title ?? copy.title}
+          subtitle={flow === 'join' ? flowCopy.joinSubtitle : (pathCopy?.subtitle ?? `${copy.subtitle} ${roleName}.`)}
+        />
+        </div>
+        <section className={`${t1dCard(theme, 'mint')} t1d-workspace-section ${theme === 'dark' ? 't1d-workspace-section--dark' : 't1d-workspace-section--light'} p-7 md:p-9 ${isRTL ? 'text-right' : 'text-left'}`}>
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="space-y-4">
+              <p className={softLabelClass}>{flowCopy.create}</p>
+              <HouseholdSetupFields
+                lang={lang}
+                theme={theme}
+                role={role}
+                form={form}
+                onChange={setField}
+                diabetesType={diabetesType}
+                onDiabetesTypeChange={setDiabetesType}
+                presetType={presetType}
+              />
+            </div>
+            <div className="space-y-4">
+              <p className={softLabelClass}>{flowCopy.join}</p>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{flowCopy.joinSubtitle}</p>
+              <div className="space-y-2">
+                <label className={softLabelClass}>{flowCopy.inviteCode}</label>
                 <input
-                  className={`${tone} ${isRTL ? 'text-right' : 'text-left'}`}
+                  className={`${t1dInput(theme)} ${isRTL ? 'text-right' : 'text-left'}`}
                   value={inviteCode}
                   onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
                   placeholder={flowCopy.invitePlaceholder}
                 />
               </div>
-            ) : (
-              (Object.keys(copy.fields) as Array<keyof typeof copy.fields>).map((key) => (
-                <div key={key} className={key === 'householdName' ? 'space-y-2 md:col-span-2' : 'space-y-2'}>
-                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{copy.fields[key]}</label>
-                  <input
-                    className={`${tone} ${isRTL ? 'text-right' : 'text-left'}`}
-                    value={form[key]}
-                    onChange={(event) => setField(key, event.target.value)}
-                    placeholder={copy.placeholders[key]}
-                  />
-                </div>
-              ))
-            )}
+            </div>
+          </div>
 
+          <form className="mt-8" onSubmit={handleSubmit}>
             {error ? <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/40 dark:text-rose-300 md:col-span-2">{error}</p> : null}
 
-            <div className={`md:col-span-2 flex ${isRTL ? 'justify-start' : 'justify-end'}`}>
+            <div className={`mt-4 flex flex-wrap gap-3 ${isRTL ? 'justify-start' : 'justify-end'}`}>
               <button
                 type="submit"
                 disabled={busy}
-                className={`rounded-full px-6 py-3 text-[11px] font-black uppercase tracking-[0.18em] ${
-                  theme === 'dark' ? 'bg-sky-300 text-slate-950 hover:bg-sky-200' : 'bg-slate-950 text-white hover:bg-slate-800'
-                } disabled:cursor-not-allowed disabled:opacity-60`}
+                className={`${t1dBtnPrimary(theme)} disabled:cursor-not-allowed disabled:opacity-60`}
               >
-                {busy ? copy.working : flow === 'join' ? flowCopy.joinAction : copy.save}
+                {busy ? copy.working : inviteCode.trim() ? flowCopy.joinAction : (presetType === 'type2' ? WORKSPACE_T2_LABELS[lang].setupSave : copy.save)}
               </button>
             </div>
           </form>
         </section>
       </div>
-    </div>
+    </MemberZoneShell>
   );
 };
 

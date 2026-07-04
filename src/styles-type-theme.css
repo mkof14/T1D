@@ -1,0 +1,348 @@
+/* Diabetes type visual identity — T1 mint/emerald, T2 orange/coral */
+
+.t1d-member-shell--type1 {
+  --t1d-type-accent: 16 185 129;
+  --t1d-type-accent-strong: 4 120 87;
+  --t1d-type-accent-soft: rgba(16, 185, 129, 0.14);
+  --t1d-type-accent-border: rgba(16, 185, 129, 0.38);
+  --t1d-type-accent-glow: rgba(16, 185, 129, 0.18);
+  --t1d-type-secondary: 20 184 166;
+}
+
+.t1d-member-shell--type2 {
+  --t1d-type-accent: 234 88 12;
+  --t1d-type-accent-strong: 154 52 18;
+  --t1d-type-accent-soft: rgba(249, 115, 22, 0.16);
+  --t1d-type-accent-border: rgba(234, 88, 12, 0.42);
+  --t1d-type-accent-glow: rgba(249, 115, 22, 0.22);
+  --t1d-type-secondary: 217 119 6;
+}
+
+.t1d-accent-bar--type1 {
+  background: linear-gradient(90deg, rgb(16 185 129), rgb(20 184 166) 45%, rgb(52 211 153) 100%);
+  background-size: 100% 100%;
+  animation: none;
+}
+
+.t1d-accent-bar--type2 {
+  background: linear-gradient(90deg, rgb(234 88 12), rgb(249 115 22) 40%, rgb(251 146 60) 72%, rgb(217 119 6) 100%);
+  background-size: 100% 100%;
+  animation: none;
+  height: 0.34rem;
+}
+
+.t1d-type-ribbon {
+  position: relative;
+  z-index: 25;
+  border-bottom: 1px solid transparent;
+}
+
+.t1d-type-ribbon--type1 {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.14), rgba(20, 184, 166, 0.08) 55%, transparent);
+  border-bottom-color: rgba(16, 185, 129, 0.22);
+}
+
+.t1d-type-ribbon--type2 {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.18), rgba(234, 88, 12, 0.1) 55%, rgba(251, 146, 60, 0.06));
+  border-bottom-color: rgba(234, 88, 12, 0.28);
+}
+
+.t1d-type-ribbon--dark.t1d-type-ribbon--type1 {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.16), rgba(20, 184, 166, 0.08) 55%, transparent);
+  border-bottom-color: rgba(16, 185, 129, 0.24);
+}
+
+.t1d-type-ribbon--dark.t1d-type-ribbon--type2 {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.12) 55%, transparent);
+  border-bottom-color: rgba(249, 115, 22, 0.28);
+}
+
+.t1d-type-ribbon__badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.t1d-type-ribbon__badge--type1 {
+  background: rgb(16 185 129);
+  color: white;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.28);
+}
+
+.t1d-type-ribbon__badge--type2 {
+  background: linear-gradient(135deg, rgb(234 88 12), rgb(249 115 22));
+  color: white;
+  box-shadow: 0 8px 22px rgba(234, 88, 12, 0.32);
+}
+
+.t1d-type-ribbon__path {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.t1d-type-ribbon--type1 .t1d-type-ribbon__path {
+  color: rgb(4 120 87);
+}
+
+.t1d-type-ribbon--type2 .t1d-type-ribbon__path {
+  color: rgb(154 52 18);
+}
+
+.t1d-type-ribbon--dark.t1d-type-ribbon--type1 .t1d-type-ribbon__path {
+  color: rgb(167 243 208);
+}
+
+.t1d-type-ribbon--dark.t1d-type-ribbon--type2 .t1d-type-ribbon__path {
+  color: rgb(253 186 116);
+}
+
+.t1d-type-ribbon__tag {
+  font-size: 0.78rem;
+  font-weight: 700;
+  opacity: 0.82;
+}
+
+.t1d-member-shell--type1 .t1d-backdrop .t1d-orb-a {
+  background: rgba(16, 185, 129, 0.16);
+}
+
+.t1d-member-shell--type1 .t1d-backdrop .t1d-orb-b {
+  background: rgba(20, 184, 166, 0.12);
+}
+
+.t1d-member-shell--type2 .t1d-backdrop .t1d-orb-a {
+  background: rgba(249, 115, 22, 0.2);
+}
+
+.t1d-member-shell--type2 .t1d-backdrop .t1d-orb-b {
+  background: rgba(234, 88, 12, 0.14);
+}
+
+.t1d-member-shell--type2 .t1d-backdrop .t1d-orb-c {
+  background: rgba(251, 146, 60, 0.12);
+}
+
+.t1d-member-shell--type1 .t1d-topbar {
+  border-bottom-color: rgba(16, 185, 129, 0.22);
+}
+
+.t1d-member-shell--type2 .t1d-topbar {
+  border-bottom-color: rgba(249, 115, 22, 0.28);
+}
+
+.t1d-member-shell--type1 .t1d-btn-warm-primary--light {
+  background: linear-gradient(135deg, rgb(16 185 129), rgb(5 150 105));
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.24);
+}
+
+.t1d-member-shell--type1 .t1d-btn-warm-primary--light:hover {
+  background: linear-gradient(135deg, rgb(5 150 105), rgb(4 120 87));
+}
+
+.t1d-member-shell--type2 .t1d-btn-warm-primary--light {
+  background: linear-gradient(135deg, rgb(234 88 12), rgb(194 65 12));
+  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.28);
+}
+
+.t1d-member-shell--type2 .t1d-btn-warm-primary--dark {
+  background: linear-gradient(135deg, rgb(249 115 22), rgb(234 88 12));
+}
+
+.t1d-workspace-shell--type1,
+.t1d-workspace-shell--type2 {
+  position: relative;
+}
+
+.t1d-workspace-shell--type1::before,
+.t1d-workspace-shell--type2::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 0.28rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.t1d-workspace-shell--type1::before {
+  background: linear-gradient(180deg, rgb(16 185 129), rgb(20 184 166));
+}
+
+.t1d-workspace-shell--type2::before {
+  background: linear-gradient(180deg, rgb(234 88 12), rgb(251 146 60));
+  width: 0.34rem;
+}
+
+.t1d-workspace-shell--rtl.t1d-workspace-shell--type1::before,
+.t1d-workspace-shell--rtl.t1d-workspace-shell--type2::before {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
+.t1d-member-shell--type1 .t1d-workspace-section--light {
+  border-color: rgba(16, 185, 129, 0.18);
+  box-shadow: 0 14px 34px rgba(16, 185, 129, 0.08);
+}
+
+.t1d-member-shell--type2 .t1d-workspace-section--light {
+  border-color: rgba(234, 88, 12, 0.22);
+  box-shadow: 0 14px 34px rgba(234, 88, 12, 0.1);
+}
+
+.t1d-member-shell--type1 .t1d-workspace-section--dark {
+  box-shadow: 0 16px 36px rgba(16, 185, 129, 0.08);
+}
+
+.t1d-member-shell--type2 .t1d-workspace-section--dark {
+  box-shadow: 0 16px 36px rgba(249, 115, 22, 0.1);
+}
+
+.t1d-workspace-nav--type1.t1d-workspace-nav--light .t1d-workspace-nav__item--active {
+  border-color: rgba(16, 185, 129, 0.38);
+  background: rgba(209, 250, 229, 0.82);
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.12);
+}
+
+.t1d-workspace-nav--type2.t1d-workspace-nav--light .t1d-workspace-nav__item--active {
+  border-color: rgba(234, 88, 12, 0.42);
+  background: rgba(255, 237, 213, 0.9);
+  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.16);
+}
+
+.t1d-workspace-nav--type1.t1d-workspace-nav--dark .t1d-workspace-nav__item--active {
+  border-color: rgba(16, 185, 129, 0.34);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.t1d-workspace-nav--type2.t1d-workspace-nav--dark .t1d-workspace-nav__item--active {
+  border-color: rgba(249, 115, 22, 0.38);
+  background: rgba(249, 115, 22, 0.14);
+}
+
+.t1d-workspace-nav--type1 .t1d-workspace-nav__item--active .t1d-workspace-nav__icon {
+  background: rgba(16, 185, 129, 0.16);
+  color: rgb(4 120 87);
+}
+
+.t1d-workspace-nav--type2 .t1d-workspace-nav__item--active .t1d-workspace-nav__icon {
+  background: rgba(249, 115, 22, 0.18);
+  color: rgb(154 52 18);
+}
+
+.t1d-workspace-nav--type1.t1d-workspace-nav--light .t1d-workspace-nav__item:hover {
+  border-color: rgba(16, 185, 129, 0.24);
+}
+
+.t1d-workspace-nav--type2.t1d-workspace-nav--light .t1d-workspace-nav__item:hover {
+  border-color: rgba(234, 88, 12, 0.3);
+}
+
+.t1d-type-card {
+  border-radius: 1.25rem;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.t1d-type-card--type1.t1d-type-card--light {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: linear-gradient(165deg, rgba(236, 253, 245, 0.95), rgba(255, 255, 255, 0.92));
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.1);
+}
+
+.t1d-type-card--type2.t1d-type-card--light {
+  border-color: rgba(234, 88, 12, 0.4);
+  background: linear-gradient(165deg, rgba(255, 247, 237, 0.98), rgba(255, 251, 247, 0.92));
+  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.14);
+}
+
+.t1d-type-card--type1.t1d-type-card--dark {
+  border-color: rgba(16, 185, 129, 0.32);
+  background: linear-gradient(165deg, rgba(6, 78, 59, 0.28), rgba(15, 23, 42, 0.72));
+}
+
+.t1d-type-card--type2.t1d-type-card--dark {
+  border-color: rgba(249, 115, 22, 0.36);
+  background: linear-gradient(165deg, rgba(124, 45, 18, 0.22), rgba(15, 23, 42, 0.72));
+}
+
+.t1d-glucose-dashboard--type1 .t1d-glucose-hero--stable {
+  border-color: rgba(16, 185, 129, 0.42);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-hero {
+  border-color: rgba(234, 88, 12, 0.28);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-hero--stable {
+  border-color: rgba(234, 88, 12, 0.38);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-hero--watch {
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+.t1d-glucose-dashboard--type1 .t1d-glucose-chart__line {
+  stroke: rgb(16 185 129);
+}
+
+.t1d-glucose-dashboard--type1 .t1d-glucose-chart__dot {
+  fill: rgb(16 185 129);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-chart__line {
+  stroke: rgb(234 88 12);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-chart__dot {
+  fill: rgb(234 88 12);
+}
+
+.t1d-glucose-dashboard--type1 .t1d-glucose-chart__target-band {
+  fill: rgba(16, 185, 129, 0.16);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-chart__target-band {
+  fill: rgba(249, 115, 22, 0.16);
+}
+
+.t1d-glucose-dashboard--type2 .t1d-glucose-gauge__target {
+  background: rgba(249, 115, 22, 0.55);
+}
+
+.t1d-member-layout--type1 {
+  --t1d-member-accent: rgb(16 185 129);
+}
+
+.t1d-member-layout--type2 {
+  --t1d-member-accent: rgb(234 88 12);
+}
+
+.t1d-page-hero--type2 .t1d-page-hero__copy-panel {
+  box-shadow: inset 0 0 0 2px rgba(234, 88, 12, 0.38);
+}
+
+.t1d-page-hero--type2 .t1d-page-hero__fade {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.14), transparent 55%);
+}
+
+.t1d-home-entry-gate--type2 {
+  border-color: rgba(234, 88, 12, 0.55);
+  box-shadow: 0 16px 36px rgba(234, 88, 12, 0.12);
+}
+
+.t1d-home-entry-gate--type1 {
+  border-color: rgba(16, 185, 129, 0.48);
+  box-shadow: 0 16px 36px rgba(16, 185, 129, 0.1);
+}
+
+@media (max-width: 767px) {
+  .t1d-type-ribbon__tag {
+    width: 100%;
+  }
+}

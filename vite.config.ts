@@ -1,13 +1,22 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const siteUrl = String(process.env.VITE_SITE_URL || process.env.T1D_SITE_URL || 'http://localhost:3002').replace(/\/$/, '');
+
+const siteUrlPlugin = () => ({
+  name: 't1d-site-url',
+  transformIndexHtml(html: string) {
+    return html.replaceAll('__T1D_SITE_URL__', siteUrl);
+  },
+});
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), siteUrlPlugin()],
   server: {
     port: 3002,
     proxy: {
       '/api': {
-        target: 'http://localhost:8790',
+        target: `http://127.0.0.1:${process.env.T1D_API_PORT || 8790}`,
         changeOrigin: true,
       },
     },
@@ -17,6 +26,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('knowledge-copy')) {
+            return 'knowledge';
+          }
+          if (id.includes('legal-copy')) {
+            return 'legal';
+          }
           if (id.includes('/src/content/')) {
             return 'content';
           }

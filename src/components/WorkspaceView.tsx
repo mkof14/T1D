@@ -1,16 +1,56 @@
 import React from 'react';
 import type { AccessUser } from './AccessView';
 import type { CurrentStatePayload, SafetyPreferencesInput, SessionDetail, WorkspacePayload } from '../lib/api';
-import { ROLE_LABELS, RTL_LANGUAGES, type Language } from '../types';
-import { WORKSPACE_COPY } from '../content/workspace-copy';
+import { RTL_LANGUAGES, type DiabetesType, type Language } from '../types';
+import { MEMBER_CHROME_COPY } from '../content/member-chrome-copy';
+import { DIABETES_TYPE_COPY, diabetesTypeKey } from '../content/diabetes-type-copy';
+import { readSignupDiabetesType } from '../lib/signup-diabetes-type';
+import { getRoleLabels } from '../lib/role-labels';
+import {
+  resolveFailStateHints,
+  resolvePreferenceExplainer,
+  resolveRoleFocus,
+  resolveWorkspaceCopy,
+  resolveWorkspaceInviteCopy,
+  resolveWorkspaceSectionHeaders,
+} from '../lib/workspace-content';
+import { ACTION_LABELS } from '../content/action-labels';
+import type { ActionId } from '../lib/api';
+import { t1dBtnPrimary, t1dBtnSecondary, t1dEyebrow, t1dMemberLayout, t1dPanelCompact, t1dPanelCompactSurface, t1dPanelPrimary, t1dPanelSubtle, t1dPanelSurface, t1dSoftLabel } from '../lib/t1d-ui';
+import { PageHeroBanner } from './layout/PageHeroBanner';
+import { MemberZoneShell } from './layout/MemberZoneShell';
+import { ConnectionPanel } from './workspace/ConnectionPanel';
+import { FoodAnalysisPanel } from './workspace/FoodAnalysisPanel';
+import { WorkspaceActionBanner } from './workspace/WorkspaceActionBanner';
+import { WorkspaceOnboarding } from './workspace/WorkspaceOnboarding';
+import { WorkspaceSectionHeader } from './workspace/WorkspaceSectionHeader';
+import { WorkspaceSidebar } from './workspace/WorkspaceSidebar';
+import { resolveActionFeedback } from '../content/workspace-ux-copy';
+import { NUTRITION_COPY } from '../content/nutrition-copy';
+import { createEmptyNutritionPayload } from '../lib/nutrition-defaults';
+import { memberLayoutTypeClass } from '../lib/hero-path';
+import { glucoseDashboardTypeClass, typeCardClass, workspaceShellTypeClass } from '../lib/diabetes-type-theme';
+import { GlucoseNowDashboard } from './workspace/GlucoseNowDashboard';
+import { WorkspaceNowPanel } from './workspace/WorkspaceNowPanel';
+import { AlertFlowDiagram } from './workspace/AlertFlowDiagram';
+import { DailyHistoryChart } from './workspace/DailyHistoryChart';
+import { WORKSPACE_NOW_COPY } from '../content/workspace-now-copy';
+import { WORKSPACE_VISUAL_COPY } from '../content/workspace-visual-copy';
+import { GLUCOSE_DISPLAY_COPY, glucoseUnitOptionLabel } from '../content/glucose-display-copy';
+import { normalizeGlucoseUnit } from '../lib/glucose-units';
+import type { WorkspaceSectionId } from '../content/workspace-nav-copy';
 
 interface WorkspaceViewProps {
   user: AccessUser;
   lang: Language;
+  setLang: (lang: Language) => void;
   theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
   onLogout: () => void;
+  onBackToPublic: () => void;
+  onSignUp: (type: DiabetesType) => void;
   workspace: WorkspacePayload | null;
-  onAction: () => Promise<void>;
+  onAction: (action: ActionId) => Promise<void>;
   onPreferencesSave: (preferences: SafetyPreferencesInput) => Promise<void>;
   onDexcomConnect: () => Promise<void>;
   onDexcomOAuthStart: () => Promise<void>;
@@ -18,11 +58,12 @@ interface WorkspaceViewProps {
   onDexcomTokenRefresh: () => Promise<void>;
   onDexcomDisconnect: () => Promise<void>;
   onDexcomPoll: () => Promise<void>;
+  onNutritionAnalyze: (payload: { imageBase64?: string; note?: string }) => Promise<void>;
 }
 
 const STATE_TONE: Record<CurrentStatePayload['level'], string> = {
   ok: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300',
-  watch: 'bg-sky-100 text-sky-800 dark:bg-sky-500/12 dark:text-sky-300',
+  watch: 'bg-amber-100 text-amber-900 dark:bg-amber-500/12 dark:text-amber-200',
   risk: 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300',
   critical: 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300',
   recovery: 'bg-violet-100 text-violet-800 dark:bg-violet-500/12 dark:text-violet-300',
@@ -335,7 +376,7 @@ const statusTone = (status: 'done' | 'active' | 'waiting') =>
   status === 'done'
     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
     : status === 'active'
-      ? 'bg-sky-100 text-sky-800 dark:bg-sky-500/12 dark:text-sky-300'
+      ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/12 dark:text-amber-200'
       : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
 const PRODUCT_LABELS: Record<Language, {
@@ -385,8 +426,20 @@ const deviceTone = (status: 'connected' | 'delayed' | 'offline') =>
       ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
       : 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300';
 
-export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme, onLogout, workspace, onAction, onPreferencesSave, onDexcomConnect, onDexcomOAuthStart, onDexcomOAuthFinish, onDexcomTokenRefresh, onDexcomDisconnect, onDexcomPoll }) => {
-  const copy = WORKSPACE_COPY[lang];
+export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
+  user,
+  lang,
+  setLang,
+  theme,
+  setTheme,
+  onLogout,
+  onBackToPublic,
+  onSignUp,
+  workspace,
+  onAction, onPreferencesSave, onDexcomConnect, onDexcomOAuthStart, onDexcomOAuthFinish, onDexcomTokenRefresh, onDexcomDisconnect, onDexcomPoll, onNutritionAnalyze }) => {
+  const diabetesType = workspace?.household?.diabetesType ?? readSignupDiabetesType() ?? 'type1';
+  const memberCopy = MEMBER_CHROME_COPY[lang];
+  const copy = resolveWorkspaceCopy(lang, diabetesType);
   const preferenceCopy = PREFERENCE_COPY[lang];
   const notificationCopy = NOTIFICATION_COPY[lang];
   const deliveryCopy = DELIVERY_COPY[lang];
@@ -400,27 +453,59 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
   const dexcomCopy = DEXCOM_COPY[lang];
   const labels = PRODUCT_LABELS[lang];
   const isRTL = RTL_LANGUAGES.includes(lang);
-  const roleLabels = ROLE_LABELS[lang];
+  const roleLabels = getRoleLabels(lang, workspace?.household?.diabetesType ?? 'type1');
   const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(workspace?.selectedSession?.id || null);
-  const [preferences, setPreferences] = React.useState(workspace?.household?.safetyPreferences || null);
+  const [preferences, setPreferences] = React.useState(() => {
+    const prefs = workspace?.household?.safetyPreferences;
+    return prefs
+      ? { ...prefs, glucoseUnit: normalizeGlucoseUnit(prefs.glucoseUnit) }
+      : null;
+  });
   const [savingPreferences, setSavingPreferences] = React.useState(false);
+  const [activeSection, setActiveSection] = React.useState<WorkspaceSectionId>('now');
+  const [actionFeedback, setActionFeedback] = React.useState<{ title: string; body: string; next: string } | null>(null);
+  const [actionBusy, setActionBusy] = React.useState(false);
+  const [connectionBusy, setConnectionBusy] = React.useState(false);
+  const [nutritionBusy, setNutritionBusy] = React.useState(false);
+  const [inviteCopied, setInviteCopied] = React.useState(false);
 
   React.useEffect(() => {
     setSelectedSessionId(workspace?.selectedSession?.id || workspace?.dailyHistory[0]?.id || null);
   }, [workspace?.selectedSession?.id, workspace?.dailyHistory]);
   React.useEffect(() => {
-    setPreferences(workspace?.household?.safetyPreferences || null);
+    const prefs = workspace?.household?.safetyPreferences;
+    setPreferences(
+      prefs
+        ? {
+            ...prefs,
+            glucoseUnit: normalizeGlucoseUnit(prefs.glucoseUnit),
+          }
+        : null,
+    );
   }, [workspace?.household?.safetyPreferences]);
 
   if (!workspace || workspace.needsSetup || !workspace.household || !workspace.currentState || !workspace.morningSummary) {
     return (
-      <div dir={isRTL ? 'rtl' : 'ltr'} className={`min-h-screen ${theme === 'dark' ? 'bg-[#0d1827] text-slate-100' : 'bg-[#f3f8fb] text-slate-900'}`}>
-        <div className="mx-auto max-w-[1120px] px-4 py-10 md:px-6 md:py-12">
-          <div className={`rounded-[2rem] border p-6 md:p-8 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(22,37,55,0.94),rgba(18,30,47,0.9))]' : 'border-slate-200 bg-white'} ${isRTL ? 'text-right' : 'text-left'}`}>
+      <MemberZoneShell
+        lang={lang}
+        setLang={setLang}
+        theme={theme}
+        setTheme={setTheme}
+        isRTL={isRTL}
+        diabetesType={diabetesType}
+        activePageLabel={memberCopy.activeWorkspace}
+        accountLabel={memberCopy.signOut}
+        onAccountAction={onLogout}
+        onBackToPublic={onBackToPublic}
+        onSignUp={onSignUp}
+      >
+        <div className={`${t1dMemberLayout()} relative`}>
+          <div className={`${t1dPanelPrimary(theme)} ${isRTL ? 'text-right' : 'text-left'}`}>
+            <p className={`${t1dEyebrow(theme)} mb-3`}>{copy.eyebrow}</p>
             <p className="text-lg font-black tracking-tight">{copy.currentState}</p>
           </div>
         </div>
-      </div>
+      </MemberZoneShell>
     );
   }
 
@@ -429,7 +514,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
   const deviceStatus = workspace.deviceStatus;
   const dexcom = workspace.dexcomConnection;
   const morningSummary = workspace.morningSummary;
-  const focus = copy.roleFocus[user.role];
+  const focus = resolveRoleFocus(lang, household.diabetesType, user.role);
+  const preferenceExplainer = resolvePreferenceExplainer(lang, household.diabetesType, preferenceCopy.explainer);
   const selectedSession: SessionDetail | null =
     workspace.dailyHistory.find((entry) => entry.id === selectedSessionId) || workspace.selectedSession || null;
   const trendLabel = labels[currentState.trend];
@@ -437,7 +523,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
   const dataLabel = labels[currentState.dataStatus];
   const deviceStatusLabel = deviceStatus ? labels[deviceStatus.status] : labels.waiting;
   const modeLabel = labels[currentState.mode];
-  const failCopy = copy.failStates;
+  const failCopy = {
+    ...copy.failStates,
+    ...resolveFailStateHints(lang, household.diabetesType, {
+      dayHint: copy.failStates.dayHint,
+      nightHint: copy.failStates.nightHint,
+    }),
+  };
   const roleKey = (user.role === 'caregiver' ? 'caregiver' : user.role === 'adult' ? 'adult' : 'parent');
   const hasOfflineData = currentState.dataStatus === 'offline' || deviceStatus?.status === 'offline';
   const hasDelayedData = currentState.dataStatus === 'delayed' || deviceStatus?.status === 'delayed';
@@ -542,7 +634,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
     user.role === 'adult'
       ? [
           [copy.householdName, household.householdName],
-          [copy.childCard, user.fullName || user.email],
+          [copy.childCard, household.childName || user.fullName || user.email],
           [copy.responder, currentState.responder],
           [copy.nightWindow, household.nightWindow],
         ]
@@ -570,440 +662,255 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
     }
   };
 
-  const primaryPanelClass = `rounded-[1.8rem] border p-5 md:rounded-[2rem] md:p-7 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(22,37,55,0.94),rgba(18,30,47,0.9))]' : 'border-slate-200 bg-white/95'}`;
-  const subtlePanelClass = `rounded-[1.35rem] border ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(27,43,62,0.9),rgba(21,35,52,0.86))]' : 'border-slate-200 bg-slate-50/90'}`;
-  const surfacePanelClass = `rounded-[1.35rem] border ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(24,39,58,0.92),rgba(19,32,49,0.88))] text-slate-200' : 'border-slate-200 bg-white text-slate-700'}`;
-  const compactCardClass = `rounded-[1.2rem] border p-3 md:rounded-[1.35rem] md:p-4 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(27,43,62,0.9),rgba(21,35,52,0.86))]' : 'border-slate-200 bg-slate-50/90'}`;
-  const compactSurfaceCardClass = `rounded-[1.2rem] border p-3 md:rounded-[1.35rem] md:p-4 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(24,39,58,0.92),rgba(19,32,49,0.88))]' : 'border-slate-200 bg-white'}`;
-  const secondaryHeadingClass = 'mt-4 text-lg font-black tracking-tight md:text-xl';
+  const primaryPanelClass = t1dPanelPrimary(theme);
+  const subtlePanelClass = t1dPanelSubtle(theme);
+  const surfacePanelClass = `${t1dPanelSurface(theme)} ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`;
+  const compactCardClass = t1dPanelCompact(theme);
+  const compactSurfaceCardClass = t1dPanelCompactSurface(theme);
+  const secondaryHeadingClass = 'mt-4 text-lg font-extrabold tracking-tight md:text-xl';
+  const softLabelClass = t1dSoftLabel(theme);
+  const glucoseCopy = GLUCOSE_DISPLAY_COPY[lang];
+  const nowCopy = WORKSPACE_NOW_COPY[lang];
+  const visualCopy = WORKSPACE_VISUAL_COPY[lang];
+  const glucoseUnit = normalizeGlucoseUnit(preferences?.glucoseUnit);
+  const sectionHeaders = resolveWorkspaceSectionHeaders(lang, household.diabetesType);
+  const inviteCopy = resolveWorkspaceInviteCopy(lang, household.diabetesType);
+  const nutrition = workspace.nutrition ?? createEmptyNutritionPayload(NUTRITION_COPY[lang].cameraHint);
+
+  const handleActionClick = async (action: ActionId) => {
+    setActionBusy(true);
+    try {
+      await onAction(action);
+      setActionFeedback(resolveActionFeedback(lang, action));
+      setActiveSection('timeline');
+    } catch {
+      setActionFeedback({
+        title: lang === 'ru' ? 'Не удалось сохранить действие' : 'Could not save action',
+        body: lang === 'ru' ? 'Проверьте соединение и попробуйте ещё раз.' : 'Check your connection and try again.',
+        next: '',
+      });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleNutritionSubmit = async (payload: { imageBase64?: string; note?: string }) => {
+    setNutritionBusy(true);
+    try {
+      await onNutritionAnalyze(payload);
+      setActionFeedback({
+        title: lang === 'ru' ? 'Еда сохранена' : 'Meal saved',
+        body: lang === 'ru' ? 'Отчёт добавлен в хронологию и учтён вместе с глюкозой.' : 'Report added to your timeline and linked with glucose.',
+        next: lang === 'ru' ? 'Смотрите отчёт в разделе «Еда».' : 'See the full report in Meals.',
+      });
+    } finally {
+      setNutritionBusy(false);
+    }
+  };
+
+  const wrapConnection = (fn: () => Promise<void>) => async () => {
+    setConnectionBusy(true);
+    try {
+      await fn();
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
+
+  const copyInviteCode = async () => {
+    if (!household.inviteCode || typeof navigator === 'undefined') return;
+    try {
+      await navigator.clipboard.writeText(household.inviteCode);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      setInviteCopied(false);
+    }
+  };
+
+  const sectionEyebrowClass = t1dEyebrow(theme);
+  const workspaceSectionShell = theme === 'dark' ? 't1d-workspace-section t1d-workspace-section--dark' : 't1d-workspace-section t1d-workspace-section--light';
+  const workspaceStat = theme === 'dark' ? 't1d-workspace-stat t1d-workspace-stat--dark' : 't1d-workspace-stat t1d-workspace-stat--light';
 
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} className={`min-h-screen ${theme === 'dark' ? 'bg-[#0d1827] text-slate-100' : 'bg-[#f3f8fb] text-slate-900'}`}>
-      <div className="mx-auto max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
-        <div className={`flex flex-wrap items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className={isRTL ? 'text-right' : 'text-left'}>
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-700 dark:text-sky-300">{copy.eyebrow}</p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">{copy.welcome}, {user.fullName || user.email}</h1>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{focus.body}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className={`rounded-full px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] ${
-              theme === 'dark' ? 'bg-slate-950 text-slate-100 border border-slate-700' : 'bg-white text-slate-900 border border-slate-300'
-            }`}
-          >
-            {copy.signOut}
-          </button>
-        </div>
+    <>
+      <MemberZoneShell
+        lang={lang}
+        setLang={setLang}
+        theme={theme}
+        setTheme={setTheme}
+        isRTL={isRTL}
+        diabetesType={household.diabetesType}
+        activePageLabel={memberCopy.activeWorkspace}
+        accountLabel={memberCopy.signOut}
+        onAccountAction={onLogout}
+        onBackToPublic={onBackToPublic}
+        onSignUp={onSignUp}
+      >
+        <div className={`${t1dMemberLayout()} ${memberLayoutTypeClass(household.diabetesType)} relative`}>
+        <PageHeroBanner
+          variant="workspace"
+          theme={theme}
+          isRTL={isRTL}
+          compact
+          bleed={false}
+          diabetesType={household.diabetesType}
+          eyebrow={copy.eyebrow}
+          title={`${copy.welcome}, ${user.fullName || user.email}`}
+          subtitle={focus.body}
+        />
 
-        <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6">
-          <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.currentState}</p>
-              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${STATE_TONE[currentState.level]}`}>
-                {copy.stateLabels[currentState.level]}
-              </span>
-            </div>
-            <h2 className="mt-4 text-2xl font-black tracking-tight">{displayHeadline}</h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{displayRecommendation}</p>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{modeHint}</p>
-            {contextualSummary ? (
-              <div className={`mt-4 overflow-hidden rounded-[1.6rem] border ${theme === 'dark' ? 'border-slate-800 bg-slate-900/75' : 'border-slate-200 bg-slate-50/95'}`}>
-                <div className={`h-1.5 w-full ${
-                  contextualSummary.tone === 'calm'
-                    ? 'bg-emerald-400/80'
-                    : contextualSummary.tone === 'watch'
-                      ? 'bg-amber-400/80'
-                      : 'bg-rose-400/80'
-                }`} />
-                <div className="px-4 py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{summaryCopy.title}</p>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                      contextualSummary.tone === 'calm'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                        : contextualSummary.tone === 'watch'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                          : 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                    }`}>
-                      {contextualSummary.tone === 'calm' ? summaryCopy.calm : contextualSummary.tone === 'watch' ? summaryCopy.watch : summaryCopy.attention}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold">{contextualSummary.headline}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{contextualSummary.detail}</p>
-                </div>
-              </div>
+        <div className={`t1d-workspace-shell ${workspaceShellTypeClass(household.diabetesType)} ${isRTL ? 't1d-workspace-shell--rtl' : ''}`}>
+          <WorkspaceSidebar active={activeSection} onSelect={setActiveSection} theme={theme} lang={lang} isRTL={isRTL} diabetesType={household.diabetesType} />
+          <div className="t1d-workspace-main">
+            {actionFeedback ? (
+              <WorkspaceActionBanner
+                title={actionFeedback.title}
+                body={actionFeedback.body}
+                nextHint={actionFeedback.next}
+                theme={theme}
+                isRTL={isRTL}
+                onDismiss={() => setActionFeedback(null)}
+                onOpenTimeline={() => setActiveSection('timeline')}
+                openTimelineLabel={nowCopy.openTimeline}
+              />
             ) : null}
-            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className={`rounded-2xl border p-4 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{labels.glucose}</p>
-                <p className="mt-2 text-3xl font-black tracking-tight">{currentState.glucose ?? '--'}</p>
-              </div>
-              <div className={`rounded-2xl border p-4 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{labels.trend}</p>
-                <p className="mt-2 text-lg font-black tracking-tight">{trendLabel}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{labels.data}: {dataLabel}</p>
-              </div>
-              <div className={`rounded-2xl border p-4 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{labels.confidence}</p>
-                <p className="mt-2 text-lg font-black tracking-tight">{confidenceLabel}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{labels.mode}: {modeLabel}</p>
-              </div>
-              <div className={`rounded-2xl border p-4 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{copy.responder}</p>
-                <p className="mt-2 text-lg font-black tracking-tight">{currentState.responder}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{currentState.acknowledgedAt}</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
-              <div className={`${subtlePanelClass} px-4 py-4`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{labels.dataHealth}</p>
-                  <p className="text-sm font-black tracking-tight">{dataHealthSummary}</p>
-                </div>
-                {deviceStatus ? (
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{deviceStatus.confidenceNote}</p>
+            {activeSection === 'now' ? (
+          <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
+            <WorkspaceSectionHeader title={sectionHeaders.now.title} subtitle={sectionHeaders.now.subtitle} theme={theme} isRTL={isRTL} />
+            <GlucoseNowDashboard
+              lang={lang}
+              theme={theme}
+              isRTL={isRTL}
+              diabetesType={household.diabetesType}
+              glucoseUnit={glucoseUnit}
+              currentState={currentState}
+              dexcom={dexcom}
+              recentMeals={nutrition?.recentMeals ?? []}
+              trendLabel={trendLabel}
+              dataFieldLabel={labels.data}
+              dataStatusLabel={dataLabel}
+              responderLabel={copy.responder}
+              stateLabel={copy.stateLabels[currentState.level]}
+              modeLabels={{ day: labels.day, night: labels.night }}
+              headline={displayHeadline}
+              recommendation={displayRecommendation}
+            />
+            <WorkspaceNowPanel
+              lang={lang}
+              theme={theme}
+              isRTL={isRTL}
+              diabetesType={household.diabetesType}
+              glucoseUnit={glucoseUnit}
+              currentState={currentState}
+              contextualSummary={contextualSummary}
+              dailyGuidance={dailyGuidance}
+              householdReadiness={householdReadiness}
+              nutrition={nutrition}
+              preferences={preferences}
+              guidanceLabels={guidanceCopy}
+              readinessLabels={readinessCopy}
+              summaryLabels={summaryCopy}
+              modeLabels={{ day: labels.day, night: labels.night }}
+              currentStateLabel={copy.stateLabels[currentState.level]}
+            />
+            {nutrition?.insight ? (
+              <button
+                type="button"
+                onClick={() => setActiveSection('nutrition')}
+                className={`mt-5 w-full rounded-2xl border p-4 text-left transition ${theme === 'dark' ? 'border-emerald-500/30 bg-emerald-500/10 hover:border-emerald-400/50' : 'border-emerald-200 bg-emerald-50/90 hover:border-emerald-300'}`}
+              >
+                <p className={softLabelClass}>{nowCopy.latestMeal}</p>
+                <p className="mt-2 text-sm font-bold">{nutrition.insight.headline}</p>
+                <p className="mt-1 text-sm leading-relaxed opacity-80">{nutrition.insight.detail}</p>
+              </button>
+            ) : null}
+            <div className={`mt-5 border-t pt-5 ${theme === 'dark' ? 'border-slate-800' : 'border-orange-100'}`}>
+              <p className={sectionEyebrowClass}>{copy.quickActions}</p>
+              {(currentState.level === 'watch' || currentState.level === 'risk') ? (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={() => handleActionClick('all_ok')}
+                  className={`mb-3 w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100' : 'border-emerald-300 bg-emerald-50 text-emerald-900'}`}
+                >
+                  {nowCopy.allClear}
+                </button>
+              ) : null}
+              <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+                {workspace.quickActions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={() => handleActionClick(action.id)}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                      theme === 'dark'
+                        ? 'border-amber-400/30 bg-stone-950/40 text-amber-50 hover:border-amber-300/60 hover:shadow-lg hover:shadow-amber-500/10'
+                        : 'border-orange-200 bg-white text-stone-900 hover:border-orange-300 hover:shadow-md hover:shadow-orange-500/10'
+                    }`}
+                  >
+                    {ACTION_LABELS[lang][action.id]}
+                  </button>
+                ))}
+                {workspace.quickActions.length > 0 ? (
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={() => handleActionClick('DONE')}
+                    className={`rounded-2xl px-4 py-3 text-sm font-semibold sm:col-span-2 ${t1dBtnPrimary(theme)}`}
+                  >
+                    {copy.doneAction}
+                  </button>
                 ) : null}
               </div>
-              {householdReadiness ? (
-                <div className={`${subtlePanelClass} px-4 py-4`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{readinessCopy.title}</p>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                      householdReadiness.state === 'ready'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                        : householdReadiness.state === 'watch'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                          : 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                    }`}>
-                      {householdReadiness.state === 'ready' ? readinessCopy.ready : householdReadiness.state === 'watch' ? readinessCopy.watch : readinessCopy.needsAttention}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{householdReadiness.headline}</p>
-                </div>
-              ) : null}
-              {notificationSummary && notificationSummaryLine ? (
-                <div className={`${subtlePanelClass} px-4 py-4`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{notificationCopy.summary}</p>
-                    <p className="text-sm font-black tracking-tight">{notificationSummary.mode === 'night' ? labels.night : labels.day}</p>
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationMetaLine}</p>
-                </div>
-              ) : null}
-            </div>
-            {preferencesSummary ? (
-              <div className={`mt-4 ${subtlePanelClass} px-4 py-4`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{preferenceCopy.summary}</p>
-                  <p className="text-sm font-black tracking-tight">{preferencesSummary}</p>
-                </div>
-              </div>
-            ) : null}
-            {notificationSummary && notificationSummaryLine ? (
-              <div className={`mt-4 ${subtlePanelClass} px-4 py-4`}>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationSummaryLine}</p>
-              </div>
-            ) : null}
-          </section>
-
-          <section className={`rounded-[1.8rem] border p-5 md:rounded-[2rem] md:p-7 ${theme === 'dark' ? 'border-slate-800 bg-[linear-gradient(145deg,#091423_0%,#0d1a2b_50%,#11263f_100%)]' : 'border-slate-200 bg-[linear-gradient(145deg,#f6f8fb_0%,#eef4f8_50%,#f7fbff_100%)]'} ${isRTL ? 'text-right' : 'text-left'}`}>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{focus.title}</p>
-            <div className="mt-5 space-y-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.system}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {deviceStatus ? (
-                <div className={`${surfacePanelClass} px-4 py-3 sm:col-span-2`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.device}</p>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${deviceTone(deviceStatus.status)}`}>{deviceStatusLabel}</span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold">{deviceStatus.name}</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{labels.lastSync}: {deviceStatus.lastSync}</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.signalAge}</p>
-                      <p className="mt-1 text-sm font-semibold">{deviceStatus.signalAgeMinutes === null ? '--' : `${deviceStatus.signalAgeMinutes}m`}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.lastGood}</p>
-                      <p className="mt-1 text-sm font-semibold">{deviceStatus.lastGoodReading}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.confidenceNote}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{deviceStatus.confidenceNote}</p>
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{deviceStatus.message}</p>
-                </div>
-              ) : null}
-              {dexcom ? (
-                <div className={`${surfacePanelClass} px-4 py-3 sm:col-span-2`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.title}</p>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                      dexcom?.status === 'connected'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                        : dexcom?.status === 'error'
-                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                    }`}>
-                      {dexcomStatusLabel}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.provider}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.provider}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.device}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.deviceLabel || 'Dexcom CGM'}{dexcomDeviceRuntimeLabel ? ` · ${dexcomDeviceRuntimeLabel}` : ''}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.account}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.accountName || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.mode}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcomModeLabel || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.config}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcomConfigLabel || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.freshness}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcomFreshnessLabel || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.lastPoll}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.lastPollAt || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.glucose}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.latestGlucose ?? '--'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{labels.trend}</p>
-                      <p className="mt-1 text-sm font-semibold">{labels[dexcom.latestTrend]}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.token}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.tokenExpiresAt || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.tokenStatus}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcomTokenStatusLabel || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.tokenIssued}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.tokenIssuedAt || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.tokenRefresh}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.lastTokenRefreshAt || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.autoRefresh}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcomAutoRefreshLabel || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.nextPoll}</p>
-                      <p className="mt-1 text-sm font-semibold">{dexcom.nextPollDueAt || '—'}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.message}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcom.message}</p>
-                    {dexcom.lastError ? (
-                      <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{dexcom.lastError}</p>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.accessPreview}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcom.accessTokenPreview || '—'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.refreshPreview}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcom.refreshTokenPreview || '—'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.hasRefresh}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcom.hasRefreshToken ? dexcomCopy.ready : dexcomCopy.missingToken}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.missingFields}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcom.missingConfig.length ? dexcom.missingConfig.join(', ') : '—'}</p>
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <label className="block">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomCopy.callbackCode}</p>
-                      <input
-                        value={oauthCode}
-                        onChange={(event) => setOauthCode(event.target.value)}
-                        placeholder={dexcomCopy.callbackPlaceholder}
-                        className={`mt-2 w-full rounded-2xl border px-3 py-2 text-sm ${theme === 'dark' ? 'border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400'}`}
-                      />
-                    </label>
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        onClick={() => onDexcomOAuthFinish(oauthCode)}
-                        className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'border border-slate-700 bg-slate-950 text-slate-100 hover:bg-slate-900' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`}
-                      >
-                        {dexcomCopy.finishOauth}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={onDexcomConnect}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'bg-sky-300 text-slate-950 hover:bg-sky-200' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
-                    >
-                      {dexcomCopy.connect}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onDexcomOAuthStart}
-                      disabled={!canStartOAuth}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${canStartOAuth ? (theme === 'dark' ? 'border border-emerald-700 bg-transparent text-emerald-300 hover:bg-emerald-950/30' : 'border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50') : 'cursor-not-allowed border border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-600'}`}
-                    >
-                      {dexcomCopy.authorize}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onDexcomPoll}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'border border-slate-700 bg-slate-950 text-slate-100 hover:bg-slate-900' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`}
-                    >
-                      {dexcomCopy.refresh}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onDexcomTokenRefresh}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'border border-violet-700 bg-transparent text-violet-300 hover:bg-violet-950/30' : 'border border-violet-300 bg-white text-violet-700 hover:bg-violet-50'}`}
-                    >
-                      {dexcomCopy.refreshToken}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onDexcomDisconnect}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'border border-rose-700 bg-transparent text-rose-300 hover:bg-rose-950/30' : 'border border-rose-300 bg-white text-rose-700 hover:bg-rose-50'}`}
-                    >
-                      {dexcomCopy.disconnect}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-                </div>
-              </div>
-              {dexcomHealth || dexcomScheduler ? (
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.logs}</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {dexcomHealth ? (
-                      <div className={`${surfacePanelClass} px-4 py-3 sm:col-span-2`}>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.health}</p>
-                          <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                            dexcomHealth.state === 'healthy'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                              : dexcomHealth.state === 'watch'
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                                : 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                          }`}>
-                            {dexcomHealthLabel}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm font-semibold">{dexcomHealth.headline}</p>
-                        <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcomHealth.detail}</p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.lastSuccess}</p>
-                            <p className="mt-1 text-sm font-semibold">{dexcomHealth.lastSuccessAt || '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.lastFailure}</p>
-                            <p className="mt-1 text-sm font-semibold">{dexcomHealth.lastFailureAt || '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.failures}</p>
-                            <p className="mt-1 text-sm font-semibold">{dexcomHealth.consecutiveFailures}</p>
-                          </div>
-                        </div>
-                        <div className="mt-3 rounded-2xl border border-slate-200/60 px-3 py-3 dark:border-slate-800">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.nextStep}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcomHealth.nextStep}</p>
-                        </div>
-                      </div>
-                    ) : null}
-                    {dexcomScheduler ? (
-                      <div className={`${surfacePanelClass} px-4 py-3 sm:col-span-2`}>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.scheduler}</p>
-                          <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                            dexcomScheduler.state === 'running'
-                              ? 'bg-sky-100 text-sky-800 dark:bg-sky-500/12 dark:text-sky-300'
-                              : dexcomScheduler.state === 'paused'
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                          }`}>
-                            {dexcomSchedulerLabel}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{dexcomScheduler.headline}</p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.nextRun}</p>
-                            <p className="mt-1 text-sm font-semibold">{dexcomScheduler.nextRunAt || '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.lastRun}</p>
-                            <p className="mt-1 text-sm font-semibold">{dexcomScheduler.lastRunAt || '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.pausedUntil}</p>
-                            <p className="mt-1 text-sm font-semibold">{dexcomScheduler.pausedUntil || '—'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.support}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {supportDetails.map(([label, value]) => (
-                <div
-                  key={label}
-                  className={`${surfacePanelClass} px-4 py-3`}
-                >
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</p>
-                  <p className="mt-2 text-sm font-semibold">{value}</p>
-                </div>
-              ))}
-                </div>
-              </div>
             </div>
           </section>
-        </div>
+            ) : null}
 
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-6">
-          <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.timeline}</p>
+            {activeSection === 'nutrition' ? (
+          <div className={`${primaryPanelClass} ${workspaceSectionShell}`}>
+          <FoodAnalysisPanel
+            lang={lang}
+            theme={theme}
+            isRTL={isRTL}
+            sectionTitle={sectionHeaders.nutrition.title}
+            sectionSubtitle={sectionHeaders.nutrition.subtitle}
+            nutrition={nutrition}
+            onAnalyze={handleNutritionSubmit}
+            busy={nutritionBusy}
+          />
+          </div>
+            ) : null}
+
+            {activeSection === 'system' ? (
+          <ConnectionPanel
+            lang={lang}
+            theme={theme}
+            isRTL={isRTL}
+            sectionTitle={sectionHeaders.system.title}
+            sectionSubtitle={sectionHeaders.system.subtitle}
+            deviceStatus={deviceStatus}
+            dexcom={dexcom}
+            glucoseUnit={glucoseUnit}
+            glucoseLabel={labels.glucose}
+            trendLabel={dexcom?.latestTrend ? labels[dexcom.latestTrend] : labels.flat}
+            onConnect={wrapConnection(onDexcomConnect)}
+            onDisconnect={wrapConnection(onDexcomDisconnect)}
+            onPoll={wrapConnection(onDexcomPoll)}
+            busy={connectionBusy}
+          />
+            ) : null}
+
+            {activeSection === 'timeline' ? (
+          <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
+            <WorkspaceSectionHeader title={sectionHeaders.timeline.title} subtitle={sectionHeaders.timeline.subtitle} theme={theme} isRTL={isRTL} />
             <div className="mt-5 space-y-4">
               {workspace.timeline.map((item) => (
                 <div key={item.id} className={compactCardClass}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-[15px] font-black tracking-tight md:text-base">{item.step}</p>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${statusTone(item.status)}`}>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
                       {copy.timelineStatus[item.status]}
                     </span>
                   </div>
@@ -1013,213 +920,33 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
               ))}
             </div>
           </section>
-
-          <div className="space-y-5 lg:space-y-6">
-            <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.quickActions}</p>
-              <div className="mt-4 space-y-2.5">
-                {workspace.quickActions.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={onAction}
-                    className={`w-full rounded-2xl px-4 py-3 text-sm font-black tracking-[0.02em] ${theme === 'dark' ? 'bg-sky-300 text-slate-950 hover:bg-sky-200' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
-                  >
-                    {copy.doneAction}
-                  </button>
-                ) : null}
-              </div>
-            </section>
-
-            <div className="grid gap-5 xl:grid-cols-2 xl:gap-6">
-            {dailyGuidance ? (
-              <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.guidance}</p>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{guidanceCopy.title}</p>
-                <h3 className={secondaryHeadingClass}>{dailyGuidance.title}</h3>
-                <div className="mt-5 grid gap-3">
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{guidanceCopy.now}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{dailyGuidance.now}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{guidanceCopy.watch}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{dailyGuidance.watch}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{guidanceCopy.fallback}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{dailyGuidance.fallback}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{guidanceCopy.checklist}</p>
-                    <div className="mt-3 space-y-2">
-                      {dailyGuidance.checklist.map((item) => (
-                        <p key={item} className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item}</p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
             ) : null}
 
-            {householdReadiness ? (
-              <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.guidance}</p>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{readinessCopy.title}</p>
-                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                    householdReadiness.state === 'ready'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                      : householdReadiness.state === 'watch'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                        : 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                  }`}>
-                    {householdReadiness.state === 'ready' ? readinessCopy.ready : householdReadiness.state === 'watch' ? readinessCopy.watch : readinessCopy.needsAttention}
-                  </span>
-                </div>
-                <h3 className={secondaryHeadingClass}>{householdReadiness.headline}</h3>
-                <div className="mt-5 grid gap-3">
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{readinessCopy.connection}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{householdReadiness.connection}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{readinessCopy.backup}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{householdReadiness.backup}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{readinessCopy.responder}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{householdReadiness.responder}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{readinessCopy.recovery}</p>
-                    <p className="mt-2 text-sm leading-relaxed">{householdReadiness.recovery}</p>
-                  </div>
-                </div>
-              </section>
-            ) : null}
-            </div>
-
-            {notificationSummary ? (
-              <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.logs}</p>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{notificationCopy.title}</p>
-                <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.explainer}</p>
-                <div className="mt-5 grid gap-3">
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{notificationCopy.activeNow}</p>
-                    <p className="mt-2 text-sm font-semibold">{notificationSummary.mode === 'night' ? labels.night : labels.day}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{notificationCopy.dayFlow}</p>
-                    <p className="mt-2 text-sm font-semibold">{notificationCopy.settings[notificationSummary.daySensitivity]} · {roleLabels[notificationSummary.dayPrimaryContact]}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.descriptions.day[notificationSummary.daySensitivity]}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{notificationCopy.nightFlow}</p>
-                    <p className="mt-2 text-sm font-semibold">{notificationCopy.settings[notificationSummary.nightSensitivity]} · {roleLabels[notificationSummary.nightPrimaryContact]}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.descriptions.night[notificationSummary.nightSensitivity]}</p>
-                  </div>
-                  <div className={`${subtlePanelClass} px-4 py-3`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{notificationCopy.backup}</p>
-                    <p className="mt-2 text-sm font-semibold">
-                      {notificationSummary.caregiverEnabled
-                        ? `${notificationCopy.enabled} · ${notificationSummary.caregiverDelaySeconds}${preferenceCopy.options.seconds}`
-                        : notificationCopy.disabled}
-                    </p>
-                  </div>
-                  <div className={`rounded-2xl border px-4 py-3 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{deliveryCopy.target}</p>
-                    <p className="mt-2 text-sm font-semibold">{roleLabels[notificationSummary.activeRecipient]}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{deliveryCopy.channel}: {deliveryCopy.push} · {deliveryCopy.attempts}: {notificationSummary.totalAttempts}</p>
-                  </div>
-                    <div className={`${subtlePanelClass} px-4 py-3`}>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{deliveryCopy.feed}</p>
-                      <div className="mt-3 space-y-2.5">
-                      {notificationFeed.map((item) => {
-                        const itemStatusLabel = ({
-                          sent: deliveryCopy.sent,
-                          delivered: deliveryCopy.delivered,
-                          retrying: deliveryCopy.retrying,
-                          escalated: deliveryCopy.escalated,
-                          resolved: deliveryCopy.resolved,
-                        })[item.status];
-                        return (
-                          <div key={item.id} className={`rounded-[1.1rem] border p-3 ${theme === 'dark' ? 'border-slate-700 bg-slate-950/60' : 'border-slate-200 bg-white'}`}>
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <p className="text-sm font-black tracking-tight">{roleLabels[item.recipientRole]} · {item.recipientName}</p>
-                              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                                item.status === 'resolved'
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                                  : item.status === 'escalated'
-                                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                                    : item.status === 'retrying'
-                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                                      : 'bg-sky-100 text-sky-800 dark:bg-sky-500/12 dark:text-sky-300'
-                              }`}>
-                                {itemStatusLabel}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{deliveryCopy.channel}: {deliveryCopy.push} · {item.timeLabel}</p>
-                            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.detail}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {dexcomAuditTrail.length > 0 ? (
-                    <div className={`${subtlePanelClass} px-4 py-3`}>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{dexcomOpsCopy.audit}</p>
-                      <div className="mt-3 space-y-2.5">
-                        {dexcomAuditTrail.slice(0, 4).map((item) => (
-                          <div key={item.id} className={`rounded-[1.1rem] border p-3 ${theme === 'dark' ? 'border-slate-700 bg-slate-950/60' : 'border-slate-200 bg-white'}`}>
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <p className="text-sm font-black tracking-tight">{item.headline}</p>
-                              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
-                                item.status === 'ok'
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
-                                  : item.status === 'warning'
-                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
-                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-500/12 dark:text-rose-300'
-                              }`}>
-                                {item.status === 'ok' ? dexcomOpsCopy.ok : item.status === 'warning' ? dexcomOpsCopy.warning : dexcomOpsCopy.error}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{item.time}</p>
-                            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.detail}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
-            ) : null}
-
-            <div className="grid gap-5 xl:grid-cols-2 xl:gap-6">
-            <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.settings}</p>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.roleChecklist}</p>
-              <h3 className={secondaryHeadingClass}>{focus.title}</h3>
-              <div className="mt-4 space-y-2.5">
-                {focus.points.map((point) => (
-                  <div
-                    key={point}
-                    className={`rounded-2xl border px-4 py-3 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}
-                  >
-                    <p className="text-sm font-semibold leading-relaxed">{point}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
+            {activeSection === 'settings' ? (
+          <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
+            <WorkspaceSectionHeader title={sectionHeaders.settings.title} subtitle={sectionHeaders.settings.subtitle} theme={theme} isRTL={isRTL} />
             {preferences ? (
-              <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.settings}</p>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{preferenceCopy.title}</p>
-                <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{preferenceCopy.explainer}</p>
-                <div className="mt-5 grid gap-4">
+              <>
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{preferenceExplainer}</p>
+                <div className="mt-5 grid max-w-lg gap-4">
                   <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{preferenceCopy.fields.day}</span>
+                    <span className={softLabelClass}>{glucoseCopy.unitField}</span>
+                    <select
+                      value={preferences.glucoseUnit}
+                      onChange={(event) =>
+                        setPreferences((current) =>
+                          current ? { ...current, glucoseUnit: normalizeGlucoseUnit(event.target.value) } : current,
+                        )
+                      }
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-800 bg-slate-950/70 text-slate-100' : 'border-slate-200 bg-slate-50/90 text-slate-900'}`}
+                    >
+                      <option value="mmol/L">{glucoseUnitOptionLabel(lang, 'mmol/L')}</option>
+                      <option value="mg/dL">{glucoseUnitOptionLabel(lang, 'mg/dL')}</option>
+                    </select>
+                    <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{glucoseCopy.unitHint}</p>
+                  </label>
+                  <label className="space-y-2">
+                    <span className={softLabelClass}>{preferenceCopy.fields.day}</span>
                     <select value={preferences.daySensitivity} onChange={(event) => setPreferences((current) => current ? { ...current, daySensitivity: event.target.value as SafetyPreferencesInput['daySensitivity'] } : current)} className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-800 bg-slate-950/70 text-slate-100' : 'border-slate-200 bg-slate-50/90 text-slate-900'}`}>
                       <option value="gentle">{preferenceCopy.options.gentle}</option>
                       <option value="balanced">{preferenceCopy.options.balanced}</option>
@@ -1227,23 +954,59 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
                     </select>
                   </label>
                   <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{preferenceCopy.fields.night}</span>
+                    <span className={softLabelClass}>{preferenceCopy.fields.night}</span>
                     <select value={preferences.nightSensitivity} onChange={(event) => setPreferences((current) => current ? { ...current, nightSensitivity: event.target.value as SafetyPreferencesInput['nightSensitivity'] } : current)} className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-800 bg-slate-950/70 text-slate-100' : 'border-slate-200 bg-slate-50/90 text-slate-900'}`}>
                       <option value="balanced">{preferenceCopy.options.balanced}</option>
                       <option value="protective">{preferenceCopy.options.protective}</option>
                       <option value="urgent">{preferenceCopy.options.urgent}</option>
                     </select>
                   </label>
+                  <button type="button" onClick={handlePreferenceSave} disabled={savingPreferences} className={`mt-2 rounded-2xl px-4 py-3 text-sm font-semibold ${t1dBtnPrimary(theme)} disabled:opacity-50`}>
+                    {savingPreferences ? preferenceCopy.saving : preferenceCopy.save}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </section>
+            ) : null}
+
+            {activeSection === 'alerts' && notificationSummary && preferences ? (
+              <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
+                <WorkspaceSectionHeader title={sectionHeaders.alerts.title} subtitle={sectionHeaders.alerts.subtitle} theme={theme} isRTL={isRTL} />
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.explainer}</p>
+                {deliveryStatusLabel ? (
+                  <AlertFlowDiagram
+                    lang={lang}
+                    theme={theme}
+                    isRTL={isRTL}
+                    diabetesType={household.diabetesType}
+                    notificationSummary={notificationSummary}
+                    roleLabels={roleLabels}
+                    deliveryStatusLabel={deliveryStatusLabel}
+                    sensitivityLabels={notificationCopy.settings}
+                  />
+                ) : null}
+                <div className="mt-5 grid max-w-2xl gap-4">
+                  <div className={`${subtlePanelClass} px-4 py-4`}>
+                    <p className={softLabelClass}>{notificationCopy.dayFlow}</p>
+                    <p className="mt-2 text-sm font-semibold">{roleLabels[notificationSummary.dayPrimaryContact]}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.descriptions.day[notificationSummary.daySensitivity]}</p>
+                  </div>
+                  <div className={`${subtlePanelClass} px-4 py-4`}>
+                    <p className={softLabelClass}>{notificationCopy.nightFlow}</p>
+                    <p className="mt-2 text-sm font-semibold">{roleLabels[notificationSummary.nightPrimaryContact]}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.descriptions.night[notificationSummary.nightSensitivity]}</p>
+                  </div>
+                  <div className={`${subtlePanelClass} px-4 py-4`}>
+                    <p className={softLabelClass}>{notificationCopy.backup}</p>
+                    <p className="mt-2 text-sm font-semibold">
+                      {notificationSummary.caregiverEnabled
+                        ? `${household.caregiverName || roleLabels.caregiver} · ${notificationCopy.enabled}`
+                        : notificationCopy.disabled}
+                    </p>
+                  </div>
                   <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{preferenceCopy.fields.delay}</span>
-                    <select value={preferences.caregiverDelaySeconds} onChange={(event) => setPreferences((current) => current ? { ...current, caregiverDelaySeconds: Number(event.target.value) as SafetyPreferencesInput['caregiverDelaySeconds'] } : current)} className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-800 bg-slate-950/70 text-slate-100' : 'border-slate-200 bg-slate-50/90 text-slate-900'}`}>
-                      <option value={20}>20 {preferenceCopy.options.seconds}</option>
-                      <option value={40}>40 {preferenceCopy.options.seconds}</option>
-                      <option value={60}>60 {preferenceCopy.options.seconds}</option>
-                    </select>
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{preferenceCopy.fields.dayContact}</span>
+                    <span className={softLabelClass}>{preferenceCopy.fields.dayContact}</span>
                     <select value={preferences.dayPrimaryContact} onChange={(event) => setPreferences((current) => current ? { ...current, dayPrimaryContact: event.target.value as SafetyPreferencesInput['dayPrimaryContact'] } : current)} className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-800 bg-slate-950/70 text-slate-100' : 'border-slate-200 bg-slate-50/90 text-slate-900'}`}>
                       <option value="parent">{roleLabels.parent}</option>
                       <option value="adult">{roleLabels.adult}</option>
@@ -1251,134 +1014,134 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
                     </select>
                   </label>
                   <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{preferenceCopy.fields.nightContact}</span>
+                    <span className={softLabelClass}>{preferenceCopy.fields.nightContact}</span>
                     <select value={preferences.nightPrimaryContact} onChange={(event) => setPreferences((current) => current ? { ...current, nightPrimaryContact: event.target.value as SafetyPreferencesInput['nightPrimaryContact'] } : current)} className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-800 bg-slate-950/70 text-slate-100' : 'border-slate-200 bg-slate-50/90 text-slate-900'}`}>
                       <option value="parent">{roleLabels.parent}</option>
                       <option value="adult">{roleLabels.adult}</option>
                       {household.caregiverName ? <option value="caregiver">{roleLabels.caregiver}</option> : null}
                     </select>
                   </label>
-                  <button type="button" onClick={handlePreferenceSave} disabled={savingPreferences} className={`mt-2 rounded-2xl px-4 py-3 text-sm font-black tracking-[0.02em] ${theme === 'dark' ? 'bg-sky-300 text-slate-950 hover:bg-sky-200 disabled:bg-slate-700 disabled:text-slate-300' : 'bg-slate-950 text-white hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500'}`}>
+                  <button type="button" onClick={handlePreferenceSave} disabled={savingPreferences} className={`rounded-2xl px-4 py-3 text-sm font-semibold ${t1dBtnPrimary(theme)} disabled:opacity-50`}>
                     {savingPreferences ? preferenceCopy.saving : preferenceCopy.save}
                   </button>
                 </div>
-              </section>
-            ) : null}
-            </div>
-
-            <div className="grid gap-5 xl:grid-cols-2 xl:gap-6">
-            <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.review}</p>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.morningSummary}</p>
-              <h3 className="mt-4 text-xl font-black tracking-tight">{morningSummary.headline}</h3>
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                <div className={compactCardClass}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.alerts}</p>
-                  <p className="mt-2 text-2xl font-black tracking-tight">{morningSummary.alertsCount}</p>
-                </div>
-                <div className={compactCardClass}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.actions}</p>
-                  <p className="mt-2 text-2xl font-black tracking-tight">{morningSummary.actionsCount}</p>
-                </div>
-                <div className={compactCardClass}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.escalations}</p>
-                  <p className="mt-2 text-2xl font-black tracking-tight">{morningSummary.escalationCount}</p>
-                </div>
-              </div>
-              <div className={`mt-4 ${compactCardClass}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.responders}</p>
-                <p className="mt-2 text-sm font-semibold">{morningSummary.responders.join(', ')}</p>
-              </div>
-              <div className={`mt-4 ${compactCardClass}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.outcome}</p>
-                <p className="mt-2 text-sm leading-relaxed">{morningSummary.outcome}</p>
-              </div>
-            </section>
-
-            {reviewSummary ? (
-              <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{layoutCopy.review}</p>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{reviewCopy.title}</p>
-                <h3 className={secondaryHeadingClass}>{reviewSummary.headline}</h3>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className={compactCardClass}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.score}</p>
-                    <p className="mt-2 text-2xl font-black tracking-tight">{reviewSummary.stabilityScore}</p>
-                  </div>
-                  <div className={compactCardClass}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.pattern}</p>
-                    <p className="mt-2 text-sm font-semibold">{patternLabel(reviewSummary.pattern)}</p>
-                  </div>
-                  <div className={compactCardClass}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.delivery}</p>
-                    <p className="mt-2 text-sm font-semibold">{reviewLabel(reviewSummary.deliveryReliability)}</p>
-                  </div>
-                  <div className={compactCardClass}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.response}</p>
-                    <p className="mt-2 text-sm font-semibold">{reviewLabel(reviewSummary.responseConsistency)}</p>
-                  </div>
-                </div>
-                <div className={`mt-4 ${compactCardClass}`}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.notes}</p>
-                  <div className="mt-3 space-y-2">
-                    {reviewSummary.notes.map((note) => (
-                      <p key={note} className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{note}</p>
-                    ))}
-                  </div>
-                </div>
-                <div className={`mt-4 ${compactCardClass}`}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.nextFocus}</p>
-                  <p className="mt-2 text-sm leading-relaxed">{reviewSummary.nextFocus}</p>
-                </div>
-              </section>
-            ) : null}
-            </div>
-
-            <section className={`${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.recentEvents}</p>
-              <div className="mt-4 space-y-2.5">
-                {workspace.recentEvents.map((item) => (
-                  <div key={item.id} className={compactCardClass}>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-black tracking-tight">{item.step}</p>
-                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${statusTone(item.status)}`}>
-                        {copy.timelineStatus[item.status]}
-                      </span>
+                {notificationFeed.length > 0 ? (
+                  <div className="mt-6 max-w-2xl">
+                    <p className={softLabelClass}>{deliveryCopy.feed}</p>
+                    <div className="mt-3 space-y-2">
+                      {notificationFeed.slice(0, 5).map((item) => (
+                        <div key={item.id} className={`rounded-2xl border px-4 py-3 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
+                          <p className="text-sm font-semibold">{roleLabels[item.recipientRole]} · {item.timeLabel}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.detail}</p>
+                        </div>
+                      ))}
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{item.actor} · {item.time}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.detail}</p>
                   </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        </div>
+                ) : null}
+              </section>
+            ) : null}
 
-        <section className={`mt-6 ${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.household}</p>
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {[
-              [copy.childCard, household.childName],
-              [copy.ageBand, household.childAgeBand],
-              [copy.primaryParent, `${household.primaryParent} · ${roleLabels.parent}`],
-              [copy.caregiver, `${household.caregiverName} · ${roleLabels.caregiver}`],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className={compactCardClass}
-              >
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
-                <p className="mt-2 text-[15px] font-black tracking-tight md:text-base">{value}</p>
+            {activeSection === 'history' ? (
+          <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'} pb-6`}>
+            <WorkspaceSectionHeader title={sectionHeaders.history.title} subtitle={sectionHeaders.history.subtitle} theme={theme} isRTL={isRTL} />
+            <div className={`mt-5 ${compactCardClass}`}>
+              <p className={softLabelClass}>{nowCopy.yesterdayGlance}</p>
+              <p className="mt-2 text-base font-bold leading-relaxed">{morningSummary.headline}</p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{morningSummary.outcome}</p>
+              <p className="mt-3 text-xs font-semibold opacity-75">{copy.responders}: {morningSummary.responders.join(', ')}</p>
+            </div>
+            {workspace.dailyHistory.length === 0 ? (
+              <div className={`mt-5 rounded-[1.2rem] border p-4 md:rounded-[1.35rem] ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70 text-slate-300' : 'border-slate-200 bg-slate-50/90 text-slate-600'}`}>
+                <p className="text-sm leading-relaxed">{copy.noHistory}</p>
               </div>
-            ))}
+            ) : (
+              <div className="mt-5 grid max-w-3xl gap-3">
+                {workspace.dailyHistory.map((entry) => {
+                  const expanded = selectedSession?.id === entry.id;
+                  return (
+                    <div
+                      key={entry.id}
+                      className={`rounded-[1.2rem] border transition md:rounded-[1.35rem] ${
+                        expanded
+                          ? theme === 'dark'
+                            ? 'border-amber-400/60 bg-amber-400/5'
+                            : 'border-orange-300 bg-orange-50/80'
+                          : theme === 'dark'
+                            ? 'border-slate-800 bg-slate-900/70'
+                            : 'border-slate-200 bg-slate-50/90'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSessionId(expanded ? null : entry.id)}
+                        className={`w-full p-4 ${isRTL ? 'text-right' : 'text-left'}`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className={softLabelClass}>{entry.dateLabel}</p>
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme === 'dark' ? 'bg-slate-950 text-slate-200 border border-slate-700' : 'bg-white text-slate-700 border border-slate-200'}`}>
+                            {expanded ? visualCopy.collapse : copy.viewDetail}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-[15px] font-black tracking-tight md:text-base">{entry.headline}</p>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{entry.outcome}</p>
+                      </button>
+                      {expanded ? (
+                        <div className={`border-t px-4 pb-4 pt-3 ${theme === 'dark' ? 'border-slate-800' : 'border-orange-100'}`}>
+                          <DailyHistoryChart
+                            lang={lang}
+                            theme={theme}
+                            isRTL={isRTL}
+                            diabetesType={household.diabetesType}
+                            glucoseUnit={glucoseUnit}
+                            entry={entry}
+                          />
+                          <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                            <span><span className={softLabelClass}>{copy.alerts}</span> <strong>{entry.alertsCount}</strong></span>
+                            <span><span className={softLabelClass}>{copy.actions}</span> <strong>{entry.actionsCount}</strong></span>
+                            <span><span className={softLabelClass}>{copy.escalations}</span> <strong>{entry.escalationCount}</strong></span>
+                          </div>
+                          <p className="mt-3 text-sm opacity-80">{copy.responders}: {entry.responders.join(', ')}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+            ) : null}
+
+            {activeSection === 'family' ? (
+        <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
+          <WorkspaceSectionHeader title={sectionHeaders.family.title} subtitle={sectionHeaders.family.subtitle} theme={theme} isRTL={isRTL} />
+          <div className="mt-5 max-w-2xl space-y-4">
+            <div className={`${typeCardClass(household.diabetesType, theme)} p-5 md:p-6`}>
+              <p className={softLabelClass}>{DIABETES_TYPE_COPY[lang].field}</p>
+              <p className="mt-2 text-lg font-extrabold tracking-tight">{DIABETES_TYPE_COPY[lang][diabetesTypeKey(household.diabetesType)].label}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{DIABETES_TYPE_COPY[lang][diabetesTypeKey(household.diabetesType)].description}</p>
+            </div>
+            <div className={`${subtlePanelClass} p-5 md:p-6`}>
+              <p className={softLabelClass}>{copy.childCard}</p>
+              <p className="mt-2 text-lg font-extrabold tracking-tight">{household.childName} · {household.childAgeBand}</p>
+              <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{copy.primaryParent}: {household.primaryParent}</p>
+              {household.caregiverName ? (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{copy.caregiver}: {household.caregiverName}</p>
+              ) : null}
+            </div>
           </div>
           <div className="mt-5 grid gap-5 lg:grid-cols-[0.72fr_1.28fr] lg:gap-6">
-            <div className={`${subtlePanelClass} p-4`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{householdCopy.invite}</p>
-              <p className="mt-2 text-2xl font-black tracking-[0.18em]">{household.inviteCode || '--'}</p>
+            <div className={`${subtlePanelClass} p-5 md:p-6`}>
+              <p className="text-base font-extrabold tracking-tight">{inviteCopy.title}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{inviteCopy.body}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <code className="t1d-invite-code">{household.inviteCode || '------'}</code>
+                <button type="button" onClick={copyInviteCode} className={`${t1dBtnSecondary(theme)} text-sm`}>
+                  {inviteCopied ? inviteCopy.copied : inviteCopy.copyLabel}
+                </button>
+              </div>
             </div>
             <div className={`${subtlePanelClass} p-4`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{householdCopy.members}</p>
+              <p className={softLabelClass}>{householdCopy.members}</p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {household.members.map((member) => (
                   <div
@@ -1387,7 +1150,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-black tracking-tight">{member.fullName}</p>
-                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         member.status === 'active'
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/12 dark:text-emerald-300'
                           : 'bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-300'
@@ -1395,7 +1158,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
                         {member.status === 'active' ? householdCopy.active : householdCopy.invited}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{ROLE_LABELS[lang][member.role]}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{roleLabels[member.role]}</p>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{member.email || '—'}</p>
                   </div>
                 ))}
@@ -1403,139 +1166,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({ user, lang, theme,
             </div>
           </div>
         </section>
+            ) : null}
 
-        <section className={`mt-6 ${primaryPanelClass} ${isRTL ? 'text-right' : 'text-left'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.history}</p>
-          {workspace.dailyHistory.length === 0 ? (
-            <div className={`mt-5 rounded-[1.2rem] border p-4 md:rounded-[1.35rem] ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70 text-slate-300' : 'border-slate-200 bg-slate-50/90 text-slate-600'}`}>
-              <p className="text-sm leading-relaxed">{copy.noHistory}</p>
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-6">
-              <div className="grid gap-4">
-                {workspace.dailyHistory.map((entry) => {
-                  const active = selectedSession?.id === entry.id;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => setSelectedSessionId(entry.id)}
-                      className={`rounded-[1.2rem] border p-4 transition md:rounded-[1.35rem] ${isRTL ? 'text-right' : 'text-left'} ${
-                        active
-                          ? theme === 'dark'
-                            ? 'border-sky-400 bg-sky-400/10'
-                            : 'border-sky-500 bg-sky-50'
-                          : theme === 'dark'
-                            ? 'border-slate-800 bg-slate-900/70'
-                            : 'border-slate-200 bg-slate-50/90'
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{entry.dateLabel}</p>
-                        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'bg-slate-950 text-slate-200 border border-slate-700' : 'bg-white text-slate-700 border border-slate-200'}`}>
-                          {copy.viewDetail}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[15px] font-black tracking-tight md:text-base">{entry.headline}</p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{entry.outcome}</p>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.alerts}</p>
-                          <p className="mt-1 text-lg font-black tracking-tight">{entry.alertsCount}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.actions}</p>
-                          <p className="mt-1 text-lg font-black tracking-tight">{entry.actionsCount}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.escalations}</p>
-                          <p className="mt-1 text-lg font-black tracking-tight">{entry.escalationCount}</p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedSession ? (
-                <div className={`rounded-[1.35rem] border p-4 md:rounded-[1.5rem] md:p-6 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-slate-50/90'}`}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">{copy.sessionDetail}</p>
-                  <h3 className="mt-3 text-xl font-black tracking-tight md:text-2xl">{selectedSession.headline}</h3>
-                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{selectedSession.dateLabel}</p>
-                  <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{selectedSession.outcome}</p>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <div className={compactSurfaceCardClass}>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.alerts}</p>
-                      <p className="mt-2 text-2xl font-black tracking-tight">{selectedSession.alertsCount}</p>
-                    </div>
-                    <div className={compactSurfaceCardClass}>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.actions}</p>
-                      <p className="mt-2 text-2xl font-black tracking-tight">{selectedSession.actionsCount}</p>
-                    </div>
-                    <div className={compactSurfaceCardClass}>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.escalations}</p>
-                      <p className="mt-2 text-2xl font-black tracking-tight">{selectedSession.escalationCount}</p>
-                    </div>
-                  </div>
-
-                  <div className={`mt-4 ${compactSurfaceCardClass}`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{copy.responders}</p>
-                    <p className="mt-2 text-sm font-semibold">{selectedSession.responders.join(', ')}</p>
-                  </div>
-
-                  <div className={`mt-4 ${compactSurfaceCardClass}`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.title}</p>
-                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.score}</p>
-                        <p className="mt-1 text-lg font-black tracking-tight">{selectedSession.review.stabilityScore}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.pattern}</p>
-                        <p className="mt-1 text-sm font-semibold">{patternLabel(selectedSession.review.pattern)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.delivery}</p>
-                        <p className="mt-1 text-sm font-semibold">{reviewLabel(selectedSession.review.deliveryReliability)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{reviewCopy.response}</p>
-                        <p className="mt-1 text-sm font-semibold">{reviewLabel(selectedSession.review.responseConsistency)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {selectedSession.review.notes.map((note) => (
-                        <p key={note} className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{note}</p>
-                      ))}
-                    </div>
-                    <p className="mt-4 text-sm leading-relaxed"><span className="font-black">{reviewCopy.nextFocus}: </span>{selectedSession.review.nextFocus}</p>
-                  </div>
-
-                  <div className="mt-5">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{copy.sessionTimeline}</p>
-                    <div className="mt-3 space-y-2.5">
-                      {selectedSession.timeline.map((item) => (
-                        <div key={item.id} className={compactSurfaceCardClass}>
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-[15px] font-black tracking-tight md:text-base">{item.step}</p>
-                            <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${statusTone(item.status)}`}>
-                              {copy.timelineStatus[item.status]}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{item.actor} · {item.time}</p>
-                          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.detail}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
+          </div>
+        </div>
+        </div>
+      </MemberZoneShell>
+      <WorkspaceOnboarding lang={lang} theme={theme} diabetesType={household.diabetesType} onGoToNutrition={() => setActiveSection('nutrition')} />
+    </>
   );
 };
 

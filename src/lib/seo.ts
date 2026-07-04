@@ -1,8 +1,13 @@
+import { PRODUCT_DESCRIPTION_EN } from '../content/brand';
+import { buildAbsoluteUrl } from './site-url';
+
 type SeoPayload = {
   title: string;
   description: string;
   path?: string;
   robots?: string;
+  imagePath?: string;
+  type?: 'website' | 'article';
 };
 
 const setMeta = (selector: string, attribute: 'content' | 'href', value: string) => {
@@ -13,10 +18,28 @@ const setMeta = (selector: string, attribute: 'content' | 'href', value: string)
   }
 };
 
-export const applySeo = ({ title, description, path = '/', robots = 'index,follow' }: SeoPayload) => {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+const ensureMeta = (selector: string, attribute: 'name' | 'property', value: string) => {
+  if (typeof document === 'undefined') return;
+  let element = document.querySelector(selector);
+  if (!element) {
+    element = document.createElement('meta');
+    element.setAttribute(attribute, value);
+    document.head.appendChild(element);
+  }
+};
 
-  const canonicalUrl = new URL(path, window.location.origin).toString();
+export const applySeo = ({
+  title,
+  description,
+  path = '/',
+  robots = 'index,follow',
+  imagePath = '/og-image.svg',
+  type = 'website',
+}: SeoPayload) => {
+  if (typeof document === 'undefined') return;
+
+  const canonicalUrl = buildAbsoluteUrl(path);
+  const imageUrl = buildAbsoluteUrl(imagePath);
 
   document.title = title;
   setMeta('meta[name="description"]', 'content', description);
@@ -24,7 +47,33 @@ export const applySeo = ({ title, description, path = '/', robots = 'index,follo
   setMeta('meta[property="og:title"]', 'content', title);
   setMeta('meta[property="og:description"]', 'content', description);
   setMeta('meta[property="og:url"]', 'content', canonicalUrl);
+  setMeta('meta[property="og:type"]', 'content', type);
+  ensureMeta('meta[property="og:image"]', 'property', 'og:image');
+  setMeta('meta[property="og:image"]', 'content', imageUrl);
+  ensureMeta('meta[name="twitter:image"]', 'name', 'twitter:image');
+  setMeta('meta[name="twitter:image"]', 'content', imageUrl);
   setMeta('meta[name="twitter:title"]', 'content', title);
   setMeta('meta[name="twitter:description"]', 'content', description);
   setMeta('link[rel="canonical"]', 'href', canonicalUrl);
+};
+
+export const applyOrganizationJsonLd = () => {
+  if (typeof document === 'undefined') return;
+
+  const scriptId = 't1d-org-jsonld';
+  const existing = document.getElementById(scriptId);
+  if (existing) existing.remove();
+
+  const script = document.createElement('script');
+  script.id = scriptId;
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Steady',
+    url: buildAbsoluteUrl('/'),
+    description: PRODUCT_DESCRIPTION_EN,
+    logo: buildAbsoluteUrl('/favicon.svg'),
+  });
+  document.head.appendChild(script);
 };

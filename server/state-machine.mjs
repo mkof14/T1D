@@ -35,7 +35,7 @@ const primaryContactRoleForMode = (household, mode) => {
   return preferredRole;
 };
 
-const preferredPrimaryContact = (household, mode) => {
+export const preferredPrimaryContact = (household, mode) => {
   const role = primaryContactRoleForMode(household, mode);
   return {
     role,
@@ -47,33 +47,30 @@ const preferredPrimaryContact = (household, mode) => {
 const attemptTime = (baseHour, baseMinute, offsetMinutes = 0) =>
   `${String(baseHour).padStart(2, '0')}:${String(baseMinute + offsetMinutes).padStart(2, '0')}`;
 
-export const createDefaultSafetyState = (household) => ({
-  stage: 'parent_alerted',
-  responder: preferredPrimaryContact(household, operatingMode()).name,
-  acknowledgedAt: `Awaiting ${preferredPrimaryContact(household, operatingMode()).label.toLowerCase()} confirmation`,
-  alertsCount: 2,
-  escalationCount: 0,
-  responders: [preferredPrimaryContact(household, operatingMode()).name],
-  eventLog: [
-    {
-      id: randomBytes(8).toString('hex'),
-      step: 'Risk detected',
-      actor: 'T1D system',
-      time: '02:11',
-      detail: 'A fast drop was detected from the CGM trend.',
-      status: 'done',
-    },
-    {
-      id: randomBytes(8).toString('hex'),
-      step: `${preferredPrimaryContact(household, operatingMode()).label} alerted`,
-      actor: preferredPrimaryContact(household, operatingMode()).name,
-      time: '02:12',
-      detail: `${preferredPrimaryContact(household, operatingMode()).label} received the first alert and opened the case.`,
-      status: 'active',
-    },
-  ],
-  sessions: [],
-});
+export const createDefaultSafetyState = (household) => {
+  const primaryContact = preferredPrimaryContact(household, operatingMode());
+  const nowLabel = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return {
+    stage: 'monitoring',
+    responder: primaryContact.name,
+    acknowledgedAt: 'Monitoring is active',
+    alertsCount: 0,
+    escalationCount: 0,
+    responders: [primaryContact.name],
+    eventLog: [
+      {
+        id: randomBytes(8).toString('hex'),
+        kind: 'monitoring_active',
+        step: 'Monitoring active',
+        actor: 'T1D system',
+        time: nowLabel,
+        detail: 'The household is in steady monitoring. No active alert right now.',
+        status: 'done',
+      },
+    ],
+    sessions: [],
+  };
+};
 
 export const ensureSafetyState = (household) => {
   const existingSource = household.safetyState || household.nightState;
@@ -85,6 +82,16 @@ export const ensureSafetyState = (household) => {
     sessions: Array.isArray(existing.sessions) ? existing.sessions : Array.isArray(existingSource.nightSessions) ? existingSource.nightSessions : [],
   };
 
+  if (normalized.stage === 'monitoring') {
+    const primaryContact = preferredPrimaryContact(household, operatingMode());
+    return {
+      ...normalized,
+      responder: primaryContact.name,
+      acknowledgedAt: 'Monitoring is active',
+      responders: Array.from(new Set([primaryContact.name, ...(normalized.responders || [])])),
+    };
+  }
+
   if (normalized.stage === 'parent_alerted') {
     const primaryContact = preferredPrimaryContact(household, operatingMode());
     const eventLog = Array.isArray(normalized.eventLog) ? [...normalized.eventLog] : [];
@@ -92,6 +99,7 @@ export const ensureSafetyState = (household) => {
       const lastIndex = eventLog.length - 1;
       eventLog[lastIndex] = {
         ...eventLog[lastIndex],
+        kind: 'first_alert',
         step: `${primaryContact.label} alerted`,
         actor: primaryContact.name,
         detail: `${primaryContact.label} received the first alert and opened the case.`,
@@ -210,12 +218,20 @@ export const deviceStatusForStage = (mode, stage, household) => {
   };
 };
 
-export const actionSetByRole = (role) =>
-  role === 'caregiver'
-      ? [{ id: 'caregiver_take_over' }, { id: 'caregiver_called_parent' }, { id: 'caregiver_on_way' }]
-      : role === 'adult'
-        ? [{ id: 'adult_self_monitor' }, { id: 'adult_treated_low' }, { id: 'adult_need_help' }]
-        : [{ id: 'parent_handling' }, { id: 'parent_escalate' }, { id: 'parent_mark_with_adult' }];
+export const actionSetByRole = (role, household = null) => {
+  const isType2 = household?.diabetesType === 'type2';
+  if (role === 'caregiver') {
+    return [{ id: 'caregiver_take_over' }, { id: 'caregiver_called_parent' }, { id: 'caregiver_on_way' }];
+  }
+  if (role === 'adult') {
+    return isType2
+      ? [{ id: 'adult_self_monitor' }, { id: 'adult_noting_high' }, { id: 'adult_treated_low' }, { id: 'adult_need_help' }]
+      : [{ id: 'adult_self_monitor' }, { id: 'adult_treated_low' }, { id: 'adult_need_help' }];
+  }
+  return isType2
+    ? [{ id: 'parent_handling' }, { id: 'parent_noting_high' }, { id: 'parent_escalate' }, { id: 'parent_mark_with_adult' }]
+    : [{ id: 'parent_handling' }, { id: 'parent_escalate' }, { id: 'parent_mark_with_adult' }];
+};
 
 export const timelineForStage = (_stage, household) => (ensureSafetyState(household).eventLog || []).map((entry, index, all) => ({
   ...entry,
@@ -311,7 +327,9 @@ export const notificationSummaryForStage = (household) => {
   const feed = notificationFeedForStage(household);
   const activeItem = [...feed].reverse().find((item) => item.status !== 'resolved') || feed[feed.length - 1];
   const deliveryStatus =
-    safetyState.stage === 'caregiver_escalated' || safetyState.stage === 'caregiver_active'
+    safetyState.stage === 'monitoring'
+      ? 'quiet'
+      : safetyState.stage === 'caregiver_escalated' || safetyState.stage === 'caregiver_active'
       ? 'escalated'
       : safetyState.stage === 'parent_alerted'
         ? mode === 'night' ? 'retrying' : 'delivered'
@@ -380,6 +398,28 @@ export const currentStateForRole = (role, household, safetyState, user) => {
   const nightTone = preferences.nightSensitivity === 'balanced' ? 'balanced' : preferences.nightSensitivity === 'urgent' ? 'urgent' : 'protective';
 
   const baseByStage = {
+    monitoring: {
+      child: {
+        level: 'ok',
+        headline: mode === 'night' ? 'Night monitoring is active and you are covered.' : 'Daytime monitoring is active and you are covered.',
+        recommendation: 'Stay close to an adult and keep treatment nearby.',
+      },
+      parent: {
+        level: 'ok',
+        headline: mode === 'night' ? `${childName} is in steady night monitoring.` : `${childName} is in steady daytime monitoring.`,
+        recommendation: 'No active alert right now. Keep the routine simple and stay reachable.',
+      },
+      caregiver: {
+        level: 'ok',
+        headline: `${childName}'s household is in steady monitoring.`,
+        recommendation: 'Stay available, but no backup action is needed right now.',
+      },
+      adult: {
+        level: 'ok',
+        headline: 'Monitoring is active and the current reading looks stable.',
+        recommendation: 'Keep treatment nearby and respond if the state changes.',
+      },
+    },
     parent_alerted: {
       child: {
         level: 'watch',
@@ -500,7 +540,7 @@ export const currentStateForRole = (role, household, safetyState, user) => {
     },
   };
 
-  const next = baseByStage[safetyState.stage]?.[role] || baseByStage.parent_alerted.parent;
+  const next = baseByStage[safetyState.stage]?.[role] || baseByStage.monitoring.parent;
   const signal = signalSnapshotForStage(mode, safetyState.stage, household);
   const device = deviceStatusForStage(mode, safetyState.stage, household);
   const stateWithData =
@@ -567,7 +607,22 @@ export const applySafetyAction = (user, household, action) => {
     next.acknowledgedAt = 'Recovery watch started just now';
   }
 
+  if (action === 'parent_noting_high' || action === 'adult_noting_high') {
+    next.stage = 'parent_handling';
+    next.responder = action === 'adult_noting_high' ? (user.fullName || user.email) : primaryContact.name;
+    next.acknowledgedAt = 'High glucose noted just now';
+    next.responders = Array.from(new Set([...next.responders, next.responder]));
+  }
+
+  if (action === 'all_ok') {
+    next.stage = 'monitoring';
+    next.responder = primaryContact.name;
+    next.acknowledgedAt = 'Monitoring is active';
+    next.outcome = 'Everything looks fine — monitoring continues calmly.';
+  }
+
   const outcomeByStage = {
+    monitoring: 'Monitoring is active and no response is required right now.',
     parent_alerted: 'An alert is active and waiting for confirmation.',
     parent_handling: 'The primary responder has the situation in hand and the child is not alone.',
     caregiver_escalated: 'Backup caregiver support has been activated to keep the household covered.',
@@ -582,20 +637,36 @@ export const applySafetyAction = (user, household, action) => {
   }));
   next.eventLog.push({
     id: randomBytes(8).toString('hex'),
+    kind:
+      action === 'parent_handling' ? 'parent_handling' :
+      action === 'parent_escalate' ? 'caregiver_escalated' :
+      action === 'parent_mark_with_adult' ? 'recovery_watch_started' :
+      action === 'parent_noting_high' ? 'parent_noting_high' :
+      action === 'caregiver_take_over' ? 'caregiver_take_over' :
+      action === 'caregiver_called_parent' ? 'caregiver_called_parent' :
+      action === 'caregiver_on_way' ? 'caregiver_on_way' :
+      action === 'adult_self_monitor' ? 'adult_self_monitor' :
+      action === 'adult_noting_high' ? 'adult_noting_high' :
+      action === 'adult_treated_low' ? 'adult_treated_low' :
+      action === 'all_ok' ? 'all_ok' :
+      'adult_need_help',
     step:
       action === 'parent_handling' ? 'Parent handling confirmed' :
       action === 'parent_escalate' ? 'Caregiver escalated' :
       action === 'parent_mark_with_adult' ? 'Recovery watch started' :
+      action === 'parent_noting_high' ? 'High glucose noted' :
       action === 'caregiver_take_over' ? 'Caregiver took over' :
       action === 'caregiver_called_parent' ? 'Caregiver contacted parent' :
       action === 'caregiver_on_way' ? 'Caregiver on the way' :
       action === 'adult_self_monitor' ? 'Adult self-monitoring' :
+      action === 'adult_noting_high' ? 'High glucose noted' :
       action === 'adult_treated_low' ? 'Adult treated low' :
+      action === 'all_ok' ? 'All clear — monitoring continues' :
       'Adult requested backup',
     actor: user.fullName || user.email,
     time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
     detail: next.outcome,
-    status: next.stage === 'recovery_watch' ? 'done' : 'active',
+    status: next.stage === 'recovery_watch' || action === 'all_ok' ? 'done' : 'active',
   });
 
   if (next.stage === 'recovery_watch') {

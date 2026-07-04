@@ -1,4 +1,5 @@
 export type Language = 'en' | 'ru' | 'uk' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'pt' | 'he' | 'ar';
+export type DiabetesType = 'type1' | 'type2';
 export type UserRole = 'child' | 'parent' | 'caregiver' | 'adult';
 
 export const SUPPORTED_LANGUAGES: Language[] = ['en', 'ru', 'uk', 'es', 'fr', 'de', 'zh', 'ja', 'pt', 'he', 'ar'];

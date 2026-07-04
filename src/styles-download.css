@@ -1,0 +1,85 @@
+
+.t1d-download-card {
+  border-radius: 1.35rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--card-shadow);
+}
+
+.t1d-download-card--dark {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+.t1d-download-card--hero {
+  background: linear-gradient(165deg, rgba(236, 253, 255, 0.96), rgba(255, 255, 255, 0.92));
+}
+
+.t1d-download-card--dark.t1d-download-card--hero {
+  background: linear-gradient(165deg, rgba(8, 47, 73, 0.34), rgba(15, 23, 42, 0.78));
+}
+
+.t1d-download-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: rgba(14, 165, 233, 0.14);
+  color: rgb(2 132 199);
+  flex-shrink: 0;
+}
+
+.t1d-download-card--dark .t1d-download-icon {
+  background: rgba(14, 165, 233, 0.18);
+  color: rgb(125 211 252);
+}
+
+.t1d-download-title {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  line-height: 1.15;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.t1d-download-section-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(2 132 199);
+}
+
+.t1d-download-card--dark .t1d-download-section-title {
+  color: rgb(125 211 252);
+}
+
+.t1d-download-installed {
+  background: rgba(16, 185, 129, 0.14);
+  color: rgb(4 120 87);
+}
+
+.t1d-download-card--dark .t1d-download-installed {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(110 231 183);
+}
+
+.t1d-footer-download-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(14, 165, 233, 0.12);
+  color: rgb(3 105 161);
+  text-decoration: none;
+}
+
+.t1d-footer--dark .t1d-footer-download-badge {
+  background: rgba(14, 165, 233, 0.16);
+  color: rgb(125 211 252);
+}

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /access
+Disallow: /create-account
+Disallow: /household-setup
+Disallow: /workspace
+Disallow: /api/
+
+Sitemap: http://localhost:3002/sitemap.xml

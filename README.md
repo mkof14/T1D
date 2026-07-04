@@ -1,134 +1,94 @@
 # T1D Project
 
-Standalone T1D daily-support app inside the Luna repository.
+Standalone Type 1 Diabetes daily-support app for families.
 
 ## What this app includes
 
-- React + Vite frontend
-- Node API for auth, household setup, safety state, and Dexcom foundation
-- Local file-backed data store for development and demos
-- Vercel-ready SPA routing and serverless API adapter
+- React + Vite frontend with 11-language public site and safety workspace
+- Node API for auth, household setup, safety state, Dexcom integration, and alert engine
+- Durable storage via Postgres when `DATABASE_URL` is set, JSON fallback for local dev
+- Vercel-ready SPA routing, serverless API adapter, and cron-based Dexcom sync
 
 ## Local development
 
-From `/Users/mk/Desktop/Luna/apps/t1d`:
+From `/Users/mk/Desktop/T1D`:
 
 ```bash
 npm install
-npm run api
-```
-
-In a second terminal:
-
-```bash
-npm run dev
-```
-
-Or run both together:
-
-```bash
+cp .env.example .env.local
 npm run dev:full
 ```
 
-Frontend:
+Frontend: `http://localhost:3002`  
+API: `http://localhost:8790`
 
-- `http://localhost:3002`
+Or run separately:
 
-API:
+```bash
+npm run api
+npm run dev
+```
 
-- `http://localhost:8790`
+## Quality gates
+
+```bash
+npm run lint
+npm run test:unit
+npm run test:smoke
+npm run build
+npm run perf:budget
+npm run test:e2e
+npm run release:ready
+npm run smoke:deploy
+npm run verify:prod
+```
+
+See also `docs/INCIDENT_RUNBOOK.md`.
 
 ## Environment variables
 
 Start from `.env.example`.
 
-Core variables:
+Core:
 
 - `T1D_API_PORT`
 - `T1D_ALLOWED_ORIGINS`
 - `T1D_COOKIE_SECURE`
 - `T1D_DATA_DIR`
+- `T1D_SITE_URL`
+- `DATABASE_URL` (recommended for production)
+- `T1D_CRON_SECRET`
+- `T1D_EXPOSE_RESET_TOKEN` (dev only)
 
-Dexcom variables:
+Dexcom:
 
 - `DEXCOM_USE_LIVE`
 - `DEXCOM_CLIENT_ID`
 - `DEXCOM_CLIENT_SECRET`
 - `DEXCOM_REDIRECT_URI`
-- `DEXCOM_AUTHORIZE_URL`
-- `DEXCOM_TOKEN_URL`
-- `DEXCOM_API_BASE_URL`
-- `DEXCOM_EGV_PATH`
-- `DEXCOM_DEVICE_PATH`
-- `DEXCOM_HTTP_TIMEOUT_MS`
-- `DEXCOM_HTTP_MAX_RETRIES`
-- `DEXCOM_HTTP_RETRY_DELAY_MS`
-- `DEXCOM_POLL_INTERVAL_SECONDS`
-- `DEXCOM_DEGRADED_POLL_INTERVAL_SECONDS`
-- `DEXCOM_RATE_LIMIT_POLL_INTERVAL_SECONDS`
-- `T1D_BACKGROUND_SYNC_INTERVAL_MS`
+- OAuth/API URLs and polling tuning vars
 
-## GitHub setup
+Optional monitoring:
 
-Recommended repo setup:
-
-1. Push the repository to GitHub.
-2. Keep `apps/t1d/.env.example` committed.
-3. Do not commit real secrets.
-4. Use GitHub pull requests to review all changes to `apps/t1d`.
+- `VITE_SENTRY_DSN`
 
 ## Vercel setup
 
-Recommended project settings:
+1. Import `https://github.com/mkof14/T1D` into Vercel.
+2. Root directory: repository root.
+3. Build command: `npm run build`
+4. Output directory: `dist`
+5. Add env vars from `.env.example`.
+6. Set `DEXCOM_REDIRECT_URI=https://your-domain.vercel.app/api/dexcom/oauth/callback`
+7. Set `T1D_CRON_SECRET` and configure Vercel Cron (see `vercel.json`).
 
-1. Import the GitHub repository into Vercel.
-2. Set the Root Directory to:
+## Production notes
 
-```text
-apps/t1d
-```
+- Without `DATABASE_URL`, serverless storage is ephemeral on Vercel.
+- Dexcom OAuth uses persisted state tokens and supports browser GET callback.
+- Background Dexcom polling runs through `/api/cron/dexcom-sync`.
+- Alert engine evaluates CGM readings and opens safety alerts from `monitoring` state.
 
-3. Vercel will use:
+## GitHub
 
-- `npm run build`
-- `dist` as output
-- `apps/t1d/vercel.json` for SPA + API routing
-
-4. Add environment variables in Vercel:
-
-```text
-T1D_ALLOWED_ORIGINS=https://your-domain.vercel.app
-T1D_COOKIE_SECURE=true
-DEXCOM_USE_LIVE=false
-```
-
-Add live Dexcom secrets only when you are ready:
-
-```text
-DEXCOM_CLIENT_ID
-DEXCOM_CLIENT_SECRET
-DEXCOM_REDIRECT_URI=https://your-domain.vercel.app/api/dexcom/oauth/callback
-DEXCOM_AUTHORIZE_URL
-DEXCOM_TOKEN_URL
-DEXCOM_API_BASE_URL
-DEXCOM_EGV_PATH
-DEXCOM_DEVICE_PATH
-```
-
-## Important deployment note
-
-The current data store is file-based and intended for development, demos, and preview environments.
-
-On Vercel:
-
-- API functions are serverless
-- filesystem writes are temporary
-- data can reset between cold starts or deployments
-
-That means production should eventually move to durable storage such as Postgres, Redis, Supabase, Neon, or another persistent backend.
-
-## Build check
-
-```bash
-npm run build
-```
+Repository: `https://github.com/mkof14/T1D`

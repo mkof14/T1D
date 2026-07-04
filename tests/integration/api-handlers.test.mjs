@@ -1,0 +1,171 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { cookieFromResponse, invoke } from '../helpers/http-mock.mjs';
+
+let handleRequest;
+let dataDir;
+
+beforeAll(async () => {
+  dataDir = mkdtempSync(path.join(tmpdir(), 't1d-api-int-'));
+  process.env.T1D_DATA_DIR = dataDir;
+  process.env.T1D_API_ALLOWED_ORIGINS = 'http://localhost:3002';
+  ({ handleRequest } = await import('../../server/index.mjs'));
+});
+
+afterAll(() => {
+  rmSync(dataDir, { recursive: true, force: true });
+});
+
+describe('api handlers', () => {
+  it('returns health with security headers and request id', async () => {
+    const response = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/health?verbose=1',
+      headers: { 'x-request-id': 'test-health-id' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.json().ok).toBe(true);
+    expect(response.json().requestId).toBe('test-health-id');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['x-frame-options']).toBe('DENY');
+    expect(response.headers['x-request-id']).toBe('test-health-id');
+  });
+
+  it('reports unauthenticated session state', async () => {
+    const response = await invoke(handleRequest, { method: 'GET', url: '/api/session' });
+    expect(response.status).toBe(200);
+    expect(response.json()).toEqual({ authenticated: false });
+  });
+
+  it('reports google auth availability', async () => {
+    const response = await invoke(handleRequest, { method: 'GET', url: '/api/access/google/status' });
+    expect(response.status).toBe(200);
+    expect(response.json()).toEqual({ enabled: false, startPath: '/api/access/google/start' });
+  });
+
+  it('signs up, loads workspace, and accepts feedback', async () => {
+    const email = `integration-${Date.now()}@example.com`;
+    const signup = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/access/signup',
+      headers: { 'content-type': 'application/json', 'x-t1d-lang': 'ru' },
+      body: {
+        email,
+        password: 'IntegrationPass123!',
+        fullName: 'Integration Parent',
+        role: 'parent',
+      },
+    });
+
+    expect(signup.status).toBe(201);
+    const sessionCookie = cookieFromResponse(signup, 't1d_sid');
+    expect(sessionCookie).toBeTruthy();
+
+    const workspaceBeforeSetup = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/workspace',
+      headers: { cookie: `t1d_sid=${sessionCookie}`, 'x-t1d-lang': 'ru' },
+    });
+    expect(workspaceBeforeSetup.status).toBe(200);
+    expect(workspaceBeforeSetup.json().needsSetup).toBe(true);
+
+    const setup = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/household/setup',
+      headers: {
+        cookie: `t1d_sid=${sessionCookie}`,
+        'content-type': 'application/json',
+        'x-t1d-lang': 'ru',
+      },
+      body: {
+        householdName: 'Integration Circle',
+        childName: 'Mila',
+        childAgeBand: '8-12',
+        primaryParent: 'Anna',
+        caregiverName: 'Jordan',
+        nightWindow: '10:00 PM - 7:00 AM',
+        diabetesType: 'type1',
+      },
+    });
+    expect(setup.status).toBe(200);
+    expect(setup.json().household.diabetesType).toBe('type1');
+    expect(setup.json().household.safetyPreferences.nightSensitivity).toBe('protective');
+
+    const setupType2 = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/access/signup',
+      headers: { 'content-type': 'application/json', 'x-t1d-lang': 'en' },
+      body: {
+        email: `integration-t2-${Date.now()}@example.com`,
+        password: 'IntegrationPass123!',
+        fullName: 'Type2 Parent',
+        role: 'parent',
+      },
+    });
+    expect(setupType2.status).toBe(201);
+    const type2Cookie = cookieFromResponse(setupType2, 't1d_sid');
+    const type2Setup = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/household/setup',
+      headers: {
+        cookie: `t1d_sid=${type2Cookie}`,
+        'content-type': 'application/json',
+        'x-t1d-lang': 'en',
+      },
+      body: {
+        householdName: 'Type2 Circle',
+        childName: 'Alex',
+        childAgeBand: '13-17',
+        primaryParent: 'Sam',
+        caregiverName: 'Jordan',
+        nightWindow: '10:00 PM - 7:00 AM',
+        diabetesType: 'type2',
+      },
+    });
+    expect(type2Setup.status).toBe(200);
+    expect(type2Setup.json().household.diabetesType).toBe('type2');
+    expect(type2Setup.json().household.safetyPreferences.daySensitivity).toBe('gentle');
+
+    const workspace = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/workspace',
+      headers: { cookie: `t1d_sid=${sessionCookie}`, 'x-t1d-lang': 'ru' },
+    });
+    expect(workspace.status).toBe(200);
+    expect(workspace.json().needsSetup).toBe(false);
+    expect(workspace.json().dailyGuidance.title).toContain('родителя');
+
+    const feedback = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/feedback',
+      headers: {
+        cookie: `t1d_sid=${sessionCookie}`,
+        'content-type': 'application/json',
+      },
+      body: { message: 'Integration feedback looks good', rating: 5 },
+    });
+    expect(feedback.status).toBe(201);
+    expect(feedback.json()).toEqual({ ok: true });
+  });
+
+  it('rejects feedback without a message', async () => {
+    const response = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/feedback',
+      headers: { 'content-type': 'application/json' },
+      body: { rating: 4 },
+    });
+    expect(response.status).toBe(400);
+    expect(response.json().error).toBe('Message is required');
+  });
+
+  it('serves OpenAPI spec', async () => {
+    const response = await invoke(handleRequest, { method: 'GET', url: '/api/openapi.yaml' });
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('yaml');
+    expect(response.text()).toContain('openapi:');
+  });
+});

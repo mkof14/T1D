@@ -1,0 +1,16 @@
+name: T1D Uptime
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Production smoke
+        env:
+          SMOKE_BASE_URL: ${{ vars.T1D_PRODUCTION_URL || 'https://www.example.com' }}
+        run: |
+          curl -fsS "$SMOKE_BASE_URL/api/health" | grep '"ok":true'

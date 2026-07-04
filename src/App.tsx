@@ -1,8 +1,12 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import type { AccessUser } from './components/AccessView';
-import { connectDexcom, disconnectDexcom, finishDexcomOAuth, getSession, getWorkspace, performAction, pollDexcom, refreshDexcomAuthToken, saveSafetyPreferences, signOut, startDexcomOAuth, type HouseholdProfile, type SafetyPreferencesInput, type WorkspacePayload } from './lib/api';
+import { SkipLink } from './components/SkipLink';
+import { analyzeNutrition, connectDexcom, disconnectDexcom, finishDexcomOAuth, getSession, getWorkspace, performAction, pollDexcom, refreshDexcomAuthToken, saveSafetyPreferences, signOut, startDexcomOAuth, type ActionId, type HouseholdProfile, type SafetyPreferencesInput, type WorkspacePayload } from './lib/api';
 import { applySeo } from './lib/seo';
-import { Language, RTL_LANGUAGES, SUPPORTED_LANGUAGES } from './types';
+import { memberPathForRoute, readSignupDiabetesType, setSignupDiabetesType, clearSignupDiabetesType, syncSignupTypeFromLocation } from './lib/signup-diabetes-type';
+import { t1dEyebrow, t1dShell } from './lib/t1d-ui';
+import { DiabetesType, Language, RTL_LANGUAGES, SUPPORTED_LANGUAGES } from './types';
+import { T1DPageBackdrop } from './components/layout/T1DPageBackdrop';
 
 const loadAccessView = () => import('./components/AccessView');
 const loadHouseholdSetupView = () => import('./components/HouseholdSetupView');
@@ -42,6 +46,29 @@ const LOADING_COPY: Record<Language, string> = {
   he: 'פותח את T1D',
   ar: 'جار فتح T1D',
 };
+
+const SKIP_LINK_COPY: Record<Language, string> = {
+  en: 'Skip to main content',
+  ru: 'Перейти к основному содержимому',
+  uk: 'Перейти до основного вмісту',
+  es: 'Saltar al contenido principal',
+  fr: 'Aller au contenu principal',
+  de: 'Zum Hauptinhalt springen',
+  zh: '跳到主要内容',
+  ja: 'メインコンテンツへスキップ',
+  pt: 'Ir para o conteúdo principal',
+  he: 'דלג לתוכן הראשי',
+  ar: 'انتقل إلى المحتوى الرئيسي',
+};
+
+const AppShell: React.FC<{ lang: Language; children: React.ReactNode }> = ({ lang, children }) => (
+  <>
+    <SkipLink label={SKIP_LINK_COPY[lang]} />
+    <main id="main-content" tabIndex={-1}>
+      {children}
+    </main>
+  </>
+);
 
 const APP_ROUTE_META: Record<Exclude<RouteMode, 'public'>, Record<Language, { title: string; description: string }>> = {
   signin: {
@@ -107,8 +134,9 @@ const resolveRoute = (pathname: string, hasSession: boolean): RouteMode => {
 };
 
 const RouteLoading: React.FC<{ lang: Language; theme: ThemeMode }> = ({ lang, theme }) => (
-  <div className={`min-h-screen flex items-center justify-center ${theme === 'dark' ? 'bg-[#09111a] text-slate-100' : 'bg-[#f3f8fb] text-slate-900'}`}>
-    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-700 dark:text-sky-300">{LOADING_COPY[lang]}</div>
+  <div className={`${t1dShell(theme)} relative flex min-h-screen items-center justify-center`}>
+    <T1DPageBackdrop theme={theme} />
+    <p className={`relative z-10 ${t1dEyebrow(theme)}`}>{LOADING_COPY[lang]}</p>
   </div>
 );
 
@@ -159,6 +187,7 @@ const App: React.FC = () => {
       title: `${meta.title} | T1D`,
       description: meta.description,
       path,
+      robots: 'noindex,nofollow',
     });
   }, [lang, route]);
 
@@ -167,6 +196,22 @@ const App: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [session]);
+
+  useEffect(() => {
+    if (!authReady || route !== 'workspace' || !session) return;
+    const params = new URLSearchParams(window.location.search);
+    const dexcomAuth = params.get('dexcom_auth');
+    if (!dexcomAuth) return;
+
+    getWorkspace()
+      .then((nextWorkspace) => setWorkspace(nextWorkspace))
+      .finally(() => {
+        params.delete('dexcom_auth');
+        const nextSearch = params.toString();
+        const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+        window.history.replaceState({}, '', nextUrl);
+      });
+  }, [authReady, route, session]);
 
   useEffect(() => {
     let mounted = true;
@@ -197,17 +242,23 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const nextPath =
-      route === 'signin' ? '/access' :
-      route === 'signup' ? '/create-account' :
-      route === 'setup' ? '/household-setup' :
-      route === 'workspace' ? '/workspace' :
-      '/';
+    syncSignupTypeFromLocation();
+  }, []);
 
-    if (window.location.pathname !== nextPath) {
+  useEffect(() => {
+    const type = readSignupDiabetesType() ?? workspace?.household?.diabetesType ?? null;
+    const nextPath = route === 'public' ? '/' : memberPathForRoute(route, type);
+
+    if (`${window.location.pathname}${window.location.search}` !== nextPath) {
       window.history.pushState({}, '', nextPath);
     }
-  }, [route]);
+  }, [route, workspace?.household?.diabetesType]);
+
+  useEffect(() => {
+    if (workspace?.household?.diabetesType) {
+      setSignupDiabetesType(workspace.household.diabetesType);
+    }
+  }, [workspace?.household?.diabetesType]);
 
   useEffect(() => {
     if (route !== 'workspace' || !session) return;
@@ -292,26 +343,47 @@ const App: React.FC = () => {
     };
   }, [authReady, route]);
 
-  const handleAuthSuccess = (user: AccessUser) => {
+  const handleAuthSuccess = async (user: AccessUser, options?: { householdReady?: boolean }) => {
     setSession(user);
+    if (options?.householdReady) {
+      const nextWorkspace = await getWorkspace();
+      if (nextWorkspace.household?.diabetesType) {
+        setSignupDiabetesType(nextWorkspace.household.diabetesType);
+      }
+      setWorkspace(nextWorkspace);
+      setRoute('workspace');
+      return;
+    }
     setRoute('setup');
   };
 
-  const handleSetupComplete = async (_household: HouseholdProfile) => {
+  const handleSetupComplete = async (household: HouseholdProfile) => {
+    setSignupDiabetesType(household.diabetesType);
     const nextWorkspace = await getWorkspace();
     setWorkspace(nextWorkspace);
     setRoute('workspace');
+  };
+
+  const beginSignup = (type: DiabetesType) => {
+    setSignupDiabetesType(type);
+    setRoute('signup');
   };
 
   const handleLogout = async () => {
     await signOut();
     setSession(null);
     setWorkspace(null);
+    clearSignupDiabetesType();
     setRoute('public');
   };
 
-  const handleDoneAction = async () => {
-    const nextWorkspace = await performAction('DONE');
+  const handleDoneAction = async (action: ActionId) => {
+    const nextWorkspace = await performAction(action);
+    setWorkspace(nextWorkspace);
+  };
+
+  const handleNutritionAnalyze = async (payload: { imageBase64?: string; note?: string }) => {
+    const nextWorkspace = await analyzeNutrition(payload);
     setWorkspace(nextWorkspace);
   };
 
@@ -354,52 +426,88 @@ const App: React.FC = () => {
   };
 
   if (!authReady) {
-    return <RouteLoading lang={lang} theme={theme} />;
+    return (
+      <AppShell lang={lang}>
+        <RouteLoading lang={lang} theme={theme} />
+      </AppShell>
+    );
   }
 
   if (route === 'signin' || route === 'signup') {
     return (
-      <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
-        <AccessView
-          mode={route}
-          lang={lang}
-          theme={theme}
-          onBack={() => setRoute('public')}
-          onSuccess={handleAuthSuccess}
-          onModeChange={(nextMode) => setRoute(nextMode)}
-        />
-      </Suspense>
+      <AppShell lang={lang}>
+        <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
+          <AccessView
+            mode={route}
+            lang={lang}
+            setLang={setLang}
+            theme={theme}
+            setTheme={setTheme}
+            diabetesType={readSignupDiabetesType()}
+            onBack={() => setRoute('public')}
+            onSignUp={beginSignup}
+            onSuccess={handleAuthSuccess}
+            onModeChange={(nextMode) => setRoute(nextMode)}
+          />
+        </Suspense>
+      </AppShell>
     );
   }
 
   if (route === 'setup' && session) {
     return (
-      <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
-        <HouseholdSetupView lang={lang} theme={theme} role={session.role} fullName={session.fullName || session.email} onComplete={handleSetupComplete} />
-      </Suspense>
+      <AppShell lang={lang}>
+        <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
+          <HouseholdSetupView
+            lang={lang}
+            setLang={setLang}
+            theme={theme}
+            setTheme={setTheme}
+            role={session.role}
+            fullName={session.fullName || session.email}
+            onComplete={handleSetupComplete}
+            onBack={() => setRoute('public')}
+            onSignUp={beginSignup}
+          />
+        </Suspense>
+      </AppShell>
     );
   }
 
   if (route === 'workspace' && session) {
     return (
-      <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
-        <WorkspaceView user={session} lang={lang} theme={theme} onLogout={handleLogout} workspace={workspace} onAction={handleDoneAction} onPreferencesSave={handlePreferencesSave} onDexcomConnect={handleDexcomConnect} onDexcomOAuthStart={handleDexcomOAuthStart} onDexcomOAuthFinish={handleDexcomOAuthFinish} onDexcomTokenRefresh={handleDexcomTokenRefresh} onDexcomDisconnect={handleDexcomDisconnect} onDexcomPoll={handleDexcomPoll} />
-      </Suspense>
+      <AppShell lang={lang}>
+        <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
+          <WorkspaceView
+            user={session}
+            lang={lang}
+            setLang={setLang}
+            theme={theme}
+            setTheme={setTheme}
+            onLogout={handleLogout}
+            workspace={workspace}
+            onBackToPublic={() => setRoute('public')}
+            onSignUp={beginSignup}
+            onAction={handleDoneAction} onPreferencesSave={handlePreferencesSave} onDexcomConnect={handleDexcomConnect} onDexcomOAuthStart={handleDexcomOAuthStart} onDexcomOAuthFinish={handleDexcomOAuthFinish} onDexcomTokenRefresh={handleDexcomTokenRefresh} onDexcomDisconnect={handleDexcomDisconnect} onDexcomPoll={handleDexcomPoll} onNutritionAnalyze={handleNutritionAnalyze} />
+        </Suspense>
+      </AppShell>
     );
   }
 
   return (
-    <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
-      <T1DPublicLandingView
-        lang={lang}
-        setLang={setLang}
-        theme={theme}
-        setTheme={setTheme}
-        basePath=""
-        onSignIn={() => setRoute('signin')}
-        onSignUp={() => setRoute('signup')}
-      />
-    </Suspense>
+    <AppShell lang={lang}>
+      <Suspense fallback={<RouteLoading lang={lang} theme={theme} />}>
+        <T1DPublicLandingView
+          lang={lang}
+          setLang={setLang}
+          theme={theme}
+          setTheme={setTheme}
+          basePath=""
+          onSignIn={() => setRoute('signin')}
+          onSignUp={beginSignup}
+        />
+      </Suspense>
+    </AppShell>
   );
 };
 

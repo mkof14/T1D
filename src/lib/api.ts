@@ -1,4 +1,4 @@
-import type { UserRole } from '../types';
+import type { DiabetesType, UserRole } from '../types';
 
 export interface SessionUser {
   email: string;
@@ -22,6 +22,7 @@ export interface HouseholdProfile {
   primaryParent: string;
   caregiverName: string;
   nightWindow: string;
+  diabetesType: DiabetesType;
   inviteCode: string;
   members: HouseholdMember[];
   safetyPreferences: SafetyPreferences;
@@ -33,6 +34,14 @@ export interface SafetyPreferences {
   caregiverDelaySeconds: 20 | 40 | 60;
   dayPrimaryContact: 'parent' | 'adult' | 'caregiver';
   nightPrimaryContact: 'parent' | 'adult' | 'caregiver';
+  glucoseUnit: 'mg/dL' | 'mmol/L';
+}
+
+export interface DexcomReading {
+  id?: string;
+  timestamp: string;
+  glucose: number;
+  trend: 'up' | 'down' | 'flat' | 'unknown';
 }
 
 export interface NotificationSummaryPayload {
@@ -93,6 +102,7 @@ export interface DexcomConnectionPayload {
   latestGlucose: number | null;
   latestTrend: 'up' | 'down' | 'flat' | 'unknown';
   latestTimestamp: string;
+  readings: DexcomReading[];
   message: string;
 }
 
@@ -234,9 +244,57 @@ export type SupportActionId =
   | 'caregiver_on_way'
   | 'adult_self_monitor'
   | 'adult_treated_low'
-  | 'adult_need_help';
+  | 'adult_need_help'
+  | 'adult_noting_high'
+  | 'parent_noting_high';
 
-export type ActionId = 'DONE';
+export type ActionId = SupportActionId | 'DONE' | 'all_ok';
+
+export interface MealMacros {
+  calories: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  sodium: number;
+}
+
+export interface MealAnalysisItem {
+  name: string;
+  portion: string;
+}
+
+export interface MealRecord {
+  id: string;
+  createdAt: string;
+  timeLabel: string;
+  label: string;
+  note: string;
+  items: MealAnalysisItem[];
+  macros: MealMacros;
+  confidence: number;
+  glucoseImpact: { level: 'low' | 'moderate' | 'high'; headline: string; detail: string };
+  combinedInsight: string;
+  hasImage: boolean;
+}
+
+export interface NutritionDailyTotals {
+  calories: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+  fiber: number;
+  mealsCount: number;
+}
+
+export interface NutritionPayload {
+  lastMeal: MealRecord | null;
+  recentMeals: MealRecord[];
+  dailyTotals: NutritionDailyTotals | null;
+  insight: { headline: string; detail: string; carbs: number; impactLevel: string } | null;
+  scanHint: string;
+}
 
 export interface WorkspacePayload {
   user: SessionUser;
@@ -260,6 +318,7 @@ export interface WorkspacePayload {
   dailyHistory: DailyHistoryEntry[];
   selectedSession: SessionDetail | null;
   quickActions: Array<{ id: SupportActionId }>;
+  nutrition: NutritionPayload | null;
 }
 
 export interface HouseholdSetupInput {
@@ -269,6 +328,7 @@ export interface HouseholdSetupInput {
   primaryParent: string;
   caregiverName: string;
   nightWindow: string;
+  diabetesType: DiabetesType;
 }
 
 export interface HouseholdJoinInput {
@@ -285,11 +345,23 @@ export interface SafetyPreferencesInput {
   caregiverDelaySeconds: SafetyPreferences['caregiverDelaySeconds'];
   dayPrimaryContact: SafetyPreferences['dayPrimaryContact'];
   nightPrimaryContact: SafetyPreferences['nightPrimaryContact'];
+  glucoseUnit: SafetyPreferences['glucoseUnit'];
 }
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
 };
+
+const langHeaders = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  const lang = window.localStorage.getItem('t1d_project_lang') || 'en';
+  return { 'X-T1D-Lang': lang };
+};
+
+const requestHeaders = () => ({
+  ...jsonHeaders,
+  ...langHeaders(),
+});
 
 async function readJson<T>(res: Response): Promise<T> {
   const data = await res.json();
@@ -302,9 +374,24 @@ async function readJson<T>(res: Response): Promise<T> {
 export async function getSession() {
   const res = await fetch('/api/session', {
     credentials: 'include',
+    headers: langHeaders(),
   });
   return readJson<{ authenticated: boolean; user?: SessionUser }>(res);
 }
+
+export async function getGoogleAuthStatus() {
+  const res = await fetch('/api/access/google/status', {
+    credentials: 'include',
+    headers: langHeaders(),
+  });
+  return readJson<{ enabled: boolean; startPath: string }>(res);
+}
+
+export const startGoogleAuth = (mode: 'signin' | 'signup', role?: UserRole) => {
+  const params = new URLSearchParams({ mode });
+  if (mode === 'signup' && role) params.set('role', role);
+  window.location.assign(`/api/access/google/start?${params.toString()}`);
+};
 
 export async function signIn(body: { email: string; password: string }) {
   const res = await fetch('/api/access/signin', {
@@ -419,14 +506,42 @@ export async function refreshDexcomAuthToken() {
   return readJson<WorkspacePayload>(res);
 }
 
+export async function analyzeNutrition(body: { imageBase64?: string; note?: string }) {
+  const res = await fetch('/api/nutrition/analyze', {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  return readJson<WorkspacePayload>(res);
+}
+
 export async function performAction(action: ActionId) {
   const res = await fetch('/api/action', {
     method: 'POST',
-    headers: jsonHeaders,
+    headers: requestHeaders(),
     credentials: 'include',
     body: JSON.stringify({ action }),
   });
   return readJson<WorkspacePayload>(res);
+}
+
+export async function requestPasswordReset(email: string) {
+  const res = await fetch('/api/access/password-reset/request', {
+    method: 'POST',
+    headers: requestHeaders(),
+    body: JSON.stringify({ email }),
+  });
+  return readJson<{ ok: boolean; message: string; resetToken?: string }>(res);
+}
+
+export async function confirmPasswordReset(token: string, password: string) {
+  const res = await fetch('/api/access/password-reset/confirm', {
+    method: 'POST',
+    headers: requestHeaders(),
+    body: JSON.stringify({ token, password }),
+  });
+  return readJson<{ ok: boolean }>(res);
 }
 
 export async function saveSafetyPreferences(body: SafetyPreferencesInput) {
@@ -437,4 +552,14 @@ export async function saveSafetyPreferences(body: SafetyPreferencesInput) {
     body: JSON.stringify(body),
   });
   return readJson<WorkspacePayload>(res);
+}
+
+export async function submitFeedback(body: { message: string; rating?: number }) {
+  const res = await fetch('/api/feedback', {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  return readJson<{ ok: boolean }>(res);
 }

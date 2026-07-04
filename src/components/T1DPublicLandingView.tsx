@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, BellRing, HeartHandshake, MoonStar, ShieldAlert, Siren, TimerReset, Users, Workflow } from 'lucide-react';
-import { Language, RTL_LANGUAGES } from '../types';
-import LanguageSelector from './LanguageSelector';
-import ThemeToggle from './ThemeToggle';
-import { COPY, HOME_TERMS, PUBLIC_MICROCOPY, PUBLIC_UI_COPY, buildPagePaths, pageIcons, pageOrder, resolvePage, type Page } from '../content/landing-copy';
-import { LEGAL_PAGE_CONTENT, LEGAL_PAGE_LABELS, LEGAL_PAGE_ORDER, LEGAL_UI_COPY, type LegalPage } from '../content/legal-copy';
-import { FAQ_ITEMS, GLOSSARY_TERMS, HOW_IT_WORKS_CONTENT, KNOWLEDGE_LABELS, LEARNING_ARTICLES, NEWS_ITEMS } from '../content/knowledge-copy';
-import { applySeo } from '../lib/seo';
+import { AlertTriangle, BellRing, Heart, HeartHandshake, MoonStar, ShieldAlert, Siren, TimerReset, Users, Workflow } from 'lucide-react';
+import { Language, RTL_LANGUAGES, type DiabetesType } from '../types';
+import { COPY, HOME_TERMS, PUBLIC_MICROCOPY, PUBLIC_UI_COPY, buildPagePaths, pageIcons, resolvePage, type Page } from '../content/landing-copy';
+import { LANDING_TYPE_COPY } from '../content/landing-type-copy';
+import { LEGAL_PAGE_LABELS, LEGAL_UI_COPY, type LegalPage } from '../content/legal-labels';
+import { KNOWLEDGE_LABELS } from '../content/knowledge-labels';
+import { applyOrganizationJsonLd, applySeo } from '../lib/seo';
+import { t1dWarmNote } from '../lib/t1d-ui';
+import { T1DPageBackdrop } from './layout/T1DPageBackdrop';
+import { T1DFooter } from './layout/T1DFooter';
+import { T1DTopbar } from './layout/T1DTopbar';
+import { buildPublicSiteChrome } from '../lib/public-site-chrome';
+import { DOWNLOAD_COPY } from '../content/download-copy';
+import { LandingNutritionShowcase } from './landing/LandingNutritionShowcase';
+import { DownloadInstallPanel } from './download/DownloadInstallPanel';
+import { PageHeroBanner, type PageHeroVariant } from './layout/PageHeroBanner';
+import { HeroIllustration } from './layout/hero-art/HeroIllustrations';
 
 interface T1DPublicLandingViewProps {
   lang: Language;
@@ -14,7 +23,7 @@ interface T1DPublicLandingViewProps {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   onSignIn: () => void;
-  onSignUp: () => void;
+  onSignUp: (type: DiabetesType) => void;
   basePath?: string;
 }
 export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
@@ -27,43 +36,78 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
   basePath,
 }) => {
   const copy = COPY[lang];
+  const downloadCopy = DOWNLOAD_COPY[lang];
+  const typeCopy = LANDING_TYPE_COPY[lang];
   const publicUi = PUBLIC_UI_COPY[lang];
   const publicMicro = PUBLIC_MICROCOPY[lang];
   const isRTL = RTL_LANGUAGES.includes(lang);
   const pagePaths = buildPagePaths(basePath);
+  const siteChrome = buildPublicSiteChrome(lang, basePath);
   const legalLabels = LEGAL_PAGE_LABELS[lang];
   const legalUi = LEGAL_UI_COPY[lang];
   const knowledgeLabels = KNOWLEDGE_LABELS.footer[lang];
   const knowledgePageLabels = KNOWLEDGE_LABELS.pages[lang];
-  const howContent = HOW_IT_WORKS_CONTENT[lang];
-  const faqItems = FAQ_ITEMS[lang];
-  const learningArticles = LEARNING_ARTICLES[lang];
-  const glossaryTerms = GLOSSARY_TERMS[lang];
-  const newsItems = NEWS_ITEMS[lang];
+  const [knowledgeBundle, setKnowledgeBundle] = useState<Awaited<typeof import('../content/knowledge-copy')> | null>(null);
+  const [legalBundle, setLegalBundle] = useState<Awaited<typeof import('../content/legal-copy')> | null>(null);
+  const howContent = knowledgeBundle?.HOW_IT_WORKS_CONTENT[lang];
+  const faqItems = knowledgeBundle?.FAQ_ITEMS[lang] ?? [];
+  const learningArticles = knowledgeBundle?.LEARNING_ARTICLES[lang] ?? [];
+  const glossaryTerms = knowledgeBundle?.GLOSSARY_TERMS[lang] ?? [];
+  const newsItems = knowledgeBundle?.NEWS_ITEMS[lang] ?? [];
+  const legalPageContent = legalBundle?.LEGAL_PAGE_CONTENT;
   const [activePage, setActivePage] = useState<Page>(() => {
     if (typeof window === 'undefined') return 'home';
     return resolvePage(window.location.pathname, pagePaths);
   });
-  const [faqOpen, setFaqOpen] = useState<string | null>(faqItems[0]?.question || null);
+  const [faqOpen, setFaqOpen] = useState<string | null>(null);
   const [learningQuery, setLearningQuery] = useState('');
   const [newsQuery, setNewsQuery] = useState('');
-  const [openArticleId, setOpenArticleId] = useState<string | null>(learningArticles[0]?.id || null);
+  const [openArticleId, setOpenArticleId] = useState<string | null>(null);
   const [learningCategory, setLearningCategory] = useState<string>('all');
   const [newsCategory, setNewsCategory] = useState<string>('all');
+  const needsKnowledgeContent = activePage === 'how' || activePage === 'faq' || activePage === 'learn' || activePage === 'news';
+  const needsLegalContent = activePage === 'privacy' || activePage === 'terms' || activePage === 'medical' || activePage === 'compliance' || activePage === 'trust';
+  const contentPending = (needsKnowledgeContent && !knowledgeBundle) || (needsLegalContent && !legalBundle);
+
+  useEffect(() => {
+    applyOrganizationJsonLd();
+  }, []);
+
+  useEffect(() => {
+    if (!needsKnowledgeContent || knowledgeBundle) return;
+    let cancelled = false;
+    import('../content/knowledge-copy').then((module) => {
+      if (!cancelled) setKnowledgeBundle(module);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsKnowledgeContent, knowledgeBundle]);
+
+  useEffect(() => {
+    if (!needsLegalContent || legalBundle) return;
+    let cancelled = false;
+    import('../content/legal-copy').then((module) => {
+      if (!cancelled) setLegalBundle(module);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsLegalContent, legalBundle]);
 
   const knowledgeUiCopy = {
     learningIntro: {
-      en: 'A structured library for families, adults, and support participants: disease basics, daily safety, device understanding, family response, and a large term glossary that can keep expanding.',
-      ru: 'Структурированная библиотека для семей, взрослых и поддерживающих участников: основы болезни, ежедневная безопасность, понимание устройств, семейная реакция и большой глоссарий, который можно постоянно расширять.',
-      uk: 'Структурована бібліотека для родин, дорослих і учасників підтримки: основи хвороби, щоденна безпека, розуміння пристроїв, реакція родини та великий глосарій, який можна постійно розширювати.',
-      es: 'Una biblioteca estructurada para familias, adultos y participantes de apoyo: fundamentos de la enfermedad, seguridad diaria, comprensión de dispositivos, respuesta familiar y un amplio glosario que puede seguir creciendo.',
-      fr: 'Une bibliothèque structurée pour les familles, les adultes et les personnes de soutien: bases de la maladie, sécurité quotidienne, compréhension des dispositifs, réponse familiale et grand glossaire pouvant continuer à s’élargir.',
-      de: 'Eine strukturierte Bibliothek für Familien, Erwachsene und unterstützende Personen: Krankheitsgrundlagen, tägliche Sicherheit, Geräteverständnis, familiäre Reaktion und ein großes Glossar, das weiter wachsen kann.',
-      zh: '这是一套面向家庭、成年人和支持参与者的结构化资料库，涵盖疾病基础、日常安全、设备理解、家庭响应，以及可持续扩展的大型术语库。',
-      ja: '家族、成人当事者、支援に関わる人のための整理されたライブラリです。病気の基礎、日々の安全、機器の理解、家族の対応、大きく広げていける用語集を含みます。',
-      pt: 'Uma biblioteca estruturada para famílias, adultos e participantes de apoio: fundamentos da doença, segurança diária, entendimento dos dispositivos, resposta da família e um grande glossário que pode continuar crescendo.',
-      he: 'ספרייה מסודרת למשפחות, למבוגרים ולאנשי תמיכה: יסודות המחלה, בטיחות יומיומית, הבנת המכשירים, תגובת המשפחה ומילון מונחים רחב שיכול להמשיך להתרחב.',
-      ar: 'مكتبة منظّمة للعائلات والبالغين والمشاركين في الدعم: أساسيات المرض، السلامة اليومية، فهم الأجهزة، استجابة الأسرة، ومكتبة مصطلحات كبيرة يمكن توسيعها مع الوقت.',
+      en: 'Basics, daily safety, devices, family response, and a growing glossary.',
+      ru: 'Основы, безопасность, устройства, семейная реакция и растущий глоссарий.',
+      uk: 'Основи, безпека, пристрої, реакція родини та глосарій.',
+      es: 'Fundamentos, seguridad diaria, dispositivos, respuesta familiar y glosario.',
+      fr: 'Bases, sécurité quotidienne, appareils, réponse familiale et glossaire.',
+      de: 'Grundlagen, Sicherheit, Geräte, Familienreaktion und Glossar.',
+      zh: '基础、日常安全、设备、家庭响应和术语库。',
+      ja: '基礎、日常の安全、機器、家族の対応、用語集。',
+      pt: 'Fundamentos, segurança diária, dispositivos, resposta familiar e glossário.',
+      he: 'יסודות, בטיחות יומית, מכשירים, תגובת משפחה ומילון מונחים.',
+      ar: 'أساسيات، السلامة اليومية، الأجهزة، استجابة الأسرة، ومسرد مصطلحات.',
     },
     learningTopics: {
       en: [
@@ -202,17 +246,17 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
       ],
     },
     newsIntro: {
-      en: 'A curated product-facing news layer for diabetes progress: research directions, treatment progress, device innovation, automation, and realistic near-term vs long-term movement.',
-      ru: 'Кураторский новостной слой о прогрессе в диабете: направления исследований, развитие лечения, инновации устройств, автоматизация и реалистичный взгляд на ближние и дальние горизонты.',
-      uk: 'Кураторський новинний шар про прогрес у сфері діабету: напрями досліджень, розвиток лікування, інновації пристроїв, автоматизація і реалістичний погляд на близькі та дальні горизонти.',
-      es: 'Una capa editorial de noticias sobre el progreso en diabetes: direcciones de investigación, avances en tratamiento, innovación en dispositivos, automatización y una visión realista del corto y largo plazo.',
-      fr: 'Une couche éditoriale d’actualités sur les progrès du diabète: orientations de recherche, avancées de traitement, innovation des dispositifs, automatisation et vision réaliste du court et du long terme.',
-      de: 'Eine kuratierte Nachrichtenebene zu Fortschritten bei Diabetes: Forschungsrichtungen, Behandlungsfortschritte, Geräteinnovation, Automatisierung und ein realistischer Blick auf kurze und lange Horizonte.',
-      zh: '一层面向产品视角的糖尿病进展资讯：研究方向、治疗进展、设备创新、自动化，以及对近期与长期变化的现实判断。',
-      ja: '糖尿病分野の進展を扱う編集型ニュースレイヤーです。研究の方向性、治療の進歩、機器の革新、自動化、そして近い将来と長期の動きを現実的に整理します。',
-      pt: 'Uma camada editorial de notícias sobre o progresso em diabetes: direções de pesquisa, avanço do tratamento, inovação em dispositivos, automação e uma visão realista do curto e do longo prazo.',
-      he: 'שכבת חדשות ערוכה על התקדמות בתחום הסוכרת: כיווני מחקר, התקדמות בטיפול, חדשנות במכשירים, אוטומציה והסתכלות מציאותית על טווח קצר וארוך.',
-      ar: 'طبقة أخبار تحريرية عن التقدم في مجال السكري: اتجاهات البحث، تطور العلاج، ابتكار الأجهزة، الأتمتة، ونظرة واقعية إلى المدى القريب والبعيد.',
+      en: 'Diabetes progress: research, treatment, devices, and realistic timelines.',
+      ru: 'Прогресс в диабете: исследования, лечение, устройства и реалистичные сроки.',
+      uk: 'Прогрес у діабеті: дослідження, лікування, пристрої та реалістичні терміни.',
+      es: 'Progreso en diabetes: investigación, tratamiento, dispositivos y plazos realistas.',
+      fr: 'Progrès du diabète: recherche, traitement, appareils et échéances réalistes.',
+      de: 'Diabetes-Fortschritt: Forschung, Behandlung, Geräte und realistische Zeitrahmen.',
+      zh: '糖尿病进展：研究、治疗、设备和现实时间表。',
+      ja: '糖尿病の進展：研究、治療、機器、現実的なタイムライン。',
+      pt: 'Progresso em diabetes: pesquisa, tratamento, dispositivos e prazos realistas.',
+      he: 'התקדמות בסוכרת: מחקר, טיפול, מכשירים ולוחות זמנים ריאליים.',
+      ar: 'تقدم السكري: البحث، العلاج، الأجهزة، والجداول الزمنية الواقعية.',
     },
     newsTopics: {
       en: [
@@ -336,6 +380,10 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
   }, [pagePaths]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activePage]);
+
+  useEffect(() => {
     if (!faqItems.length) {
       setFaqOpen(null);
       return;
@@ -366,15 +414,17 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
       activePage === 'system' ? publicMicro.systemIntro :
       activePage === 'night' ? publicMicro.nightIntro :
       activePage === 'family' ? publicMicro.familyIntro :
-      activePage === 'how' ? howContent.heroBody :
+      activePage === 'how' ? howContent?.heroBody || publicMicro.homeSubtitle :
       activePage === 'faq' ? faqItems[0]?.answer || publicMicro.homeSubtitle :
       activePage === 'learn' ? learningArticles[0]?.summary || publicMicro.homeSubtitle :
       activePage === 'news' ? knowledgePageLabels.newsNote :
       activePage === 'trust' ? publicMicro.limitsIntro :
-      activePage === 'privacy' ? LEGAL_PAGE_CONTENT.privacy.intro :
-      activePage === 'terms' ? LEGAL_PAGE_CONTENT.terms.intro :
-      activePage === 'medical' ? LEGAL_PAGE_CONTENT.medical.intro :
-      activePage === 'compliance' ? LEGAL_PAGE_CONTENT.compliance.intro :
+      activePage === 'privacy' ? legalPageContent?.privacy.intro || publicMicro.homeSubtitle :
+      activePage === 'terms' ? legalPageContent?.terms.intro || publicMicro.homeSubtitle :
+      activePage === 'medical' ? legalPageContent?.medical.intro || publicMicro.homeSubtitle :
+      activePage === 'compliance' ? legalPageContent?.compliance.intro || publicMicro.homeSubtitle :
+      activePage === 'downloadDesktop' ? downloadCopy.desktop.subtitle :
+      activePage === 'downloadMobile' ? downloadCopy.mobile.subtitle :
       publicMicro.homeSubtitle;
     const pageTitle =
       activePage === 'how' ? knowledgeLabels.how :
@@ -386,6 +436,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
       activePage === 'medical' ? legalLabels.medical :
       activePage === 'compliance' ? legalLabels.compliance :
       activePage === 'trust' ? legalLabels.trust :
+      activePage === 'downloadDesktop' ? downloadCopy.desktop.title :
+      activePage === 'downloadMobile' ? downloadCopy.mobile.title :
       copy.titleByPage[activePage];
 
     if (window.location.pathname !== path) {
@@ -399,9 +451,13 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
     });
   }, [activePage, copy, legalLabels, pagePaths, publicMicro]);
 
-  const shellTone = theme === 'dark' ? 'bg-[#09111a] text-slate-100' : 'bg-[#f3f8fb] text-slate-900';
-  const cardTone = theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(18,32,48,0.92),rgba(21,38,58,0.88))] t1d-soft-card' : 'border-slate-200 bg-white/92 t1d-soft-card';
-  const sectionLabelTone = theme === 'dark' ? 'text-sky-300' : 'text-sky-700';
+  const shellTone = theme === 'dark' ? 't1d-page-shell t1d-page-shell--dark text-slate-100' : 't1d-page-shell text-slate-900';
+  const cardTone = theme === 'dark' ? 't1d-home-card t1d-home-card--dark' : 't1d-home-card t1d-home-card--light';
+  const sectionLabelTone = theme === 'dark' ? 'text-amber-200' : 'text-amber-800';
+  const softLabelClass = theme === 'dark' ? 't1d-soft-label t1d-soft-label--dark' : 't1d-soft-label t1d-soft-label--light';
+  const primaryButtonClass = theme === 'dark' ? 't1d-btn-warm-primary t1d-btn-warm-primary--dark' : 't1d-btn-warm-primary t1d-btn-warm-primary--light';
+  const secondaryButtonClass = theme === 'dark' ? 't1d-btn-warm-secondary t1d-btn-warm-secondary--dark' : 't1d-btn-warm-secondary t1d-btn-warm-secondary--light';
+  const heroBadgeClass = theme === 'dark' ? 't1d-hero-badge t1d-hero-badge--dark' : 't1d-hero-badge t1d-hero-badge--light';
   const subtleTextTone = theme === 'dark' ? 'text-slate-300' : 'text-slate-700';
   const mutedTextTone = theme === 'dark' ? 'text-slate-400' : 'text-slate-600';
   const homeTerms = HOME_TERMS[lang];
@@ -411,29 +467,15 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
     return { ...item, Icon };
   });
 
-  const headerPages = pageOrder.filter((page) => page !== 'trust');
-  const footerProductLinks = pageOrder.map((page) => ({ id: page, label: copy.nav[page] }));
-  const footerKnowledgeLinks = [
-    { id: 'how' as const, label: knowledgeLabels.how },
-    { id: 'faq' as const, label: knowledgeLabels.faq },
-    { id: 'learn' as const, label: knowledgeLabels.learn },
-    { id: 'news' as const, label: knowledgeLabels.news },
-  ];
-  const footerLegalLinks = LEGAL_PAGE_ORDER.map((page) => ({ id: page, label: legalLabels[page] }));
+  const headerPages = siteChrome.headerPages;
+  const footerProductLinks = siteChrome.footerProductLinks;
+  const footerKnowledgeLinks = siteChrome.footerKnowledgeLinks;
+  const footerLegalLinks = siteChrome.footerLegalLinks;
+  const footerDownloadLinks = siteChrome.footerDownloadLinks;
   const isLegalPage = activePage === 'trust' || activePage === 'privacy' || activePage === 'terms' || activePage === 'medical' || activePage === 'compliance';
-  const activePageLabel =
-    activePage === 'how' ? knowledgeLabels.how :
-    activePage === 'faq' ? knowledgeLabels.faq :
-    activePage === 'learn' ? knowledgeLabels.learn :
-    activePage === 'news' ? knowledgeLabels.news :
-    activePage === 'privacy' ? legalLabels.privacy :
-    activePage === 'terms' ? legalLabels.terms :
-    activePage === 'medical' ? legalLabels.medical :
-    activePage === 'compliance' ? legalLabels.compliance :
-    activePage === 'trust' ? legalLabels.trust :
-    copy.titleByPage[activePage];
+  const activePageLabel = siteChrome.resolveActivePageLabel(activePage);
   const roleCards = [
-    { title: homeTerms.childRole, body: copy.family.intro, Icon: ShieldAlert },
+    { title: homeTerms.childRole, body: copy.family.intro, Icon: Heart },
     { title: homeTerms.parentRole, body: copy.family.points[1], Icon: MoonStar },
     { title: homeTerms.supportRole, body: copy.family.points[2], Icon: HeartHandshake },
   ];
@@ -454,269 +496,306 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
     { label: copy.states.items[2].name, body: copy.states.items[2].body },
     { label: copy.states.items[4].name, body: copy.states.items[4].body },
   ];
-  const footerActionClass = `${isRTL ? 'text-right' : 'text-left'} transition-colors ${theme === 'dark' ? 'hover:text-sky-200' : 'hover:text-slate-950'}`;
+
+  const homeCardClass = theme === 'dark' ? 't1d-home-card t1d-home-card--dark' : 't1d-home-card t1d-home-card--light';
+  const homeAccentCardClass = theme === 'dark' ? 't1d-home-card t1d-home-card--accent-dark' : 't1d-home-card t1d-home-card--accent-light';
+  const homeMintCardClass = theme === 'dark' ? 't1d-home-card t1d-home-card--mint-dark' : 't1d-home-card t1d-home-card--mint-light';
+  const homeChipClass = theme === 'dark' ? 't1d-home-chip t1d-home-chip--dark' : 't1d-home-chip t1d-home-chip--light';
+  const homeFlowStepClass = theme === 'dark' ? 't1d-home-flow-step t1d-home-flow-step--dark' : 't1d-home-flow-step t1d-home-flow-step--light';
+  const homeStateClass = theme === 'dark' ? 't1d-home-state t1d-home-state--dark' : 't1d-home-state t1d-home-state--light';
+  const homeTypePointClass = theme === 'dark' ? 't1d-home-type-point t1d-home-type-point--dark' : 't1d-home-type-point t1d-home-type-point--light';
+  const homePointClass = theme === 'dark' ? 't1d-home-point t1d-home-point--dark' : 't1d-home-point t1d-home-point--light';
+
+  const typePageNote = (page: keyof typeof typeCopy.pages) => {
+    const note = typeCopy.pages[page];
+    return (
+      <div className={t1dWarmNote(theme)}>
+        <p className={softLabelClass}>{note.eyebrow}</p>
+        <p className={`mt-3 text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{note.body}</p>
+      </div>
+    );
+  };
+
+  const pageHero = ((): { variant: PageHeroVariant; eyebrow?: string; title: string; subtitle?: string } | null => {
+    switch (activePage) {
+      case 'home':
+        return null;
+      case 'system':
+        return { variant: 'system', eyebrow: publicUi.howItWorks, title: copy.titleByPage.system, subtitle: publicMicro.systemIntro };
+      case 'night':
+        return { variant: 'night', eyebrow: publicUi.nightSupport, title: copy.titleByPage.night, subtitle: publicMicro.nightIntro };
+      case 'family':
+        return { variant: 'family', eyebrow: publicUi.familySupport, title: copy.titleByPage.family, subtitle: publicMicro.familyIntro };
+      case 'how':
+        return {
+          variant: 'how',
+          eyebrow: knowledgeLabels.how,
+          title: howContent?.heroTitle ?? knowledgePageLabels.explore,
+          subtitle: howContent?.heroBody ?? publicMicro.homeSubtitle,
+        };
+      case 'faq':
+        return { variant: 'faq', eyebrow: knowledgeLabels.faq, title: knowledgePageLabels.faqTitle, subtitle: knowledgePageLabels.accordionHint };
+      case 'learn':
+        return { variant: 'learn', eyebrow: knowledgeLabels.learn, title: knowledgePageLabels.learnTitle, subtitle: knowledgeUiCopy.learningIntro[lang] };
+      case 'news':
+        return { variant: 'news', eyebrow: knowledgeLabels.news, title: knowledgePageLabels.newsTitle, subtitle: knowledgeUiCopy.newsIntro[lang] };
+      case 'trust':
+        return { variant: 'trust', eyebrow: publicUi.limits, title: copy.titleByPage.trust, subtitle: publicMicro.limitsIntro };
+      case 'privacy':
+      case 'terms':
+      case 'medical':
+      case 'compliance':
+        return {
+          variant: activePage,
+          eyebrow: legalLabels[activePage],
+          title: legalPageContent?.[activePage].title ?? legalLabels[activePage],
+          subtitle: legalPageContent?.[activePage].intro ?? publicMicro.limitsIntro,
+        };
+      case 'downloadDesktop':
+        return { variant: 'how', eyebrow: downloadCopy.footerSection, title: downloadCopy.desktop.title, subtitle: downloadCopy.desktop.subtitle };
+      case 'downloadMobile':
+        return { variant: 'how', eyebrow: downloadCopy.footerSection, title: downloadCopy.mobile.title, subtitle: downloadCopy.mobile.subtitle };
+      default:
+        return null;
+    }
+  })();
 
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} className={`min-h-screen w-full relative overflow-hidden ${shellTone} ${isRTL ? 'text-right' : 'text-left'}`}>
-      <div className="absolute inset-0 pointer-events-none">
-        <div className={`absolute -top-24 -left-20 h-[28rem] w-[28rem] rounded-full blur-[120px] ${theme === 'dark' ? 'bg-sky-500/18' : 'bg-sky-200/70'}`} />
-        <div className={`absolute top-1/4 -right-24 h-[26rem] w-[26rem] rounded-full blur-[120px] ${theme === 'dark' ? 'bg-emerald-500/12' : 'bg-emerald-100/75'}`} />
-        <div className={`absolute -bottom-20 left-1/3 h-[22rem] w-[22rem] rounded-full blur-[120px] ${theme === 'dark' ? 'bg-amber-400/10' : 'bg-amber-100/70'}`} />
-        <div className={`absolute top-[18%] left-[8%] h-40 w-40 rounded-full blur-[90px] ${theme === 'dark' ? 'bg-cyan-400/10' : 'bg-cyan-100/80'}`} />
-        <div className={`absolute bottom-[12%] right-[8%] h-44 w-44 rounded-full blur-[90px] ${theme === 'dark' ? 'bg-rose-300/8' : 'bg-rose-100/70'}`} />
-        <div className={`absolute inset-0 opacity-[0.18] ${theme === 'dark' ? 'bg-[radial-gradient(circle_at_top,rgba(125,211,252,0.12),transparent_30%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)]' : 'bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.14),transparent_30%),linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)]'} bg-[size:auto,36px_36px,36px_36px]`} />
-      </div>
+    <div dir={isRTL ? 'rtl' : 'ltr'} className={`min-h-screen w-full relative flex flex-col ${shellTone} ${isRTL ? 'text-right' : 'text-left'}`}>
+      <T1DPageBackdrop theme={theme} />
 
-      <div className={`relative z-20 h-2 ${theme === 'dark' ? 'bg-gradient-to-r from-sky-500/70 via-cyan-400/60 to-emerald-400/60' : 'bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-300'}`} />
+      <div className={`t1d-accent-bar ${theme === 'dark' ? 't1d-accent-bar--dark' : ''}`} />
 
-      <header className={`sticky top-0 z-30 border-b backdrop-blur-xl ${theme === 'dark' ? 'border-white/10 bg-[linear-gradient(180deg,rgba(10,20,34,0.88),rgba(12,22,38,0.82))] shadow-[0_14px_40px_rgba(2,6,23,0.32)]' : 'border-slate-200/80 bg-white/82 shadow-[0_14px_40px_rgba(148,163,184,0.12)]'}`}>
-        <div className={`max-w-[1160px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <button type="button" onClick={() => setActivePage('home')} className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse text-right' : 'text-left'}`}>
-            <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border ${theme === 'dark' ? 'border-sky-400/30 bg-sky-400/10 text-sky-300' : 'border-sky-200 bg-sky-50 text-sky-700'}`}>
-              <ShieldAlert size={18} />
-            </span>
-            <div>
-              <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{copy.ui.biomathCore}</p>
-              <p className="text-lg font-black tracking-tight">{copy.brand}</p>
-            </div>
-          </button>
-          <nav className={`hidden md:flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            {headerPages.map((page, index) => (
-              <React.Fragment key={page}>
-                {index > 0 ? <span className={theme === 'dark' ? 'text-slate-600' : 'text-slate-300'}>·</span> : null}
-                <button
-                  onClick={() => setActivePage(page)}
-                  className={`text-[0.98rem] transition-colors ${
-                    activePage === page
-                      ? theme === 'dark'
-                        ? 'text-sky-200'
-                        : 'text-slate-950'
-                      : theme === 'dark'
-                        ? 'text-slate-300 hover:text-sky-200'
-                        : 'text-slate-600 hover:text-slate-950'
-                  }`}
-                >
-                  {copy.nav[page]}
-                </button>
-              </React.Fragment>
-            ))}
-          </nav>
-          <div className={`hidden md:flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <LanguageSelector current={lang} onSelect={setLang} label={copy.ui.selectLanguage} buttonLabel={copy.ui.changeLanguage} rtl={isRTL} />
-            <ThemeToggle
-              theme={theme}
-              toggle={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              activateLightLabel={copy.ui.activateLightMode}
-              activateDarkLabel={copy.ui.activateDarkMode}
-              switchToLightTitle={copy.ui.switchToLightMode}
-              switchToDarkTitle={copy.ui.switchToDarkMode}
-            />
-            <button
-              onClick={onSignIn}
-              className={`rounded-full px-5 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${theme === 'dark' ? 'bg-sky-300 text-slate-950 hover:bg-sky-200' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
-            >
-              {copy.signIn}
-            </button>
-          </div>
-          <div className={`md:hidden flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <LanguageSelector current={lang} onSelect={setLang} label={copy.ui.selectLanguage} buttonLabel={copy.ui.changeLanguage} rtl={isRTL} />
-            <ThemeToggle
-              theme={theme}
-              toggle={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              activateLightLabel={copy.ui.activateLightMode}
-              activateDarkLabel={copy.ui.activateDarkMode}
-              switchToLightTitle={copy.ui.switchToLightMode}
-              switchToDarkTitle={copy.ui.switchToDarkMode}
-            />
-            <button
-              onClick={onSignIn}
-              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] ${theme === 'dark' ? 'bg-sky-300 text-slate-950' : 'bg-slate-950 text-white'}`}
-            >
-              {copy.signIn}
-            </button>
-          </div>
-        </div>
-      </header>
+      <T1DTopbar
+        lang={lang}
+        theme={theme}
+        isRTL={isRTL}
+        brand={copy.brand}
+        nav={copy.nav}
+        headerPages={headerPages}
+        activePage={headerPages.includes(activePage as typeof headerPages[number]) ? activePage as typeof headerPages[number] : null}
+        accountLabel={copy.signIn}
+        onAccountAction={onSignIn}
+        onBrandClick={() => setActivePage('home')}
+        onNavigate={(page) => setActivePage(page)}
+        setLang={setLang}
+        setTheme={setTheme}
+        uiCopy={copy.ui}
+      />
 
-      <main className="relative z-10 max-w-[1160px] mx-auto px-4 md:px-6 pt-6 md:pt-10 pb-16 md:pb-24 space-y-10">
-        <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <p className={`text-[10px] font-black uppercase tracking-[0.4em] ${sectionLabelTone}`}>{activePage === 'system' ? publicUi.howItWorks : activePage === 'night' ? publicUi.nightSupport : activePage === 'family' ? publicUi.familySupport : activePage === 'home' ? copy.titleByPage.home : activePageLabel}</p>
-        </div>
+      <main className={`t1d-container relative z-10 ${activePage === 'home' ? 'pt-4 md:pt-5 pb-14 md:pb-16' : 'pt-2 md:pt-4 pb-16 md:pb-24 space-y-10'}`}>
+        {pageHero ? (
+          <PageHeroBanner
+            variant={pageHero.variant}
+            theme={theme}
+            isRTL={isRTL}
+            priority
+            eyebrow={pageHero.eyebrow}
+            title={pageHero.title}
+            subtitle={pageHero.subtitle}
+          />
+        ) : null}
 
         {activePage === 'home' ? (
-          <section className="space-y-8">
-            <section className={`rounded-[2.8rem] border t1d-soft-shell ${theme === 'dark' ? 'border-sky-400/15 t1d-frost-dark' : 'border-white/70 t1d-frost-light'} p-7 md:p-10`}>
-              <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-8 items-start">
-                <div className="space-y-6">
-                  <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.24em] ${theme === 'dark' ? 'border-sky-400/20 bg-sky-400/10 text-sky-200 shadow-[0_8px_24px_rgba(56,189,248,0.08)]' : 'border-sky-200 bg-white/80 text-sky-700 shadow-[0_8px_24px_rgba(56,189,248,0.08)]'} ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <ShieldAlert size={14} />
-                    <span>{copy.hero.eyebrow}</span>
-                  </div>
-                  <h1 className={`t1d-hero-title max-w-[12ch] ${theme === 'dark' ? 'text-slate-50 drop-shadow-[0_10px_34px_rgba(56,189,248,0.08)]' : 'text-slate-950'}`}>{copy.hero.title}</h1>
-                  <p className={`max-w-2xl text-[0.98rem] md:text-[1.05rem] font-medium leading-relaxed ${subtleTextTone}`}>{publicMicro.homeSubtitle}</p>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={onSignUp}
-                      className={`rounded-full px-7 py-3 text-sm font-black uppercase tracking-[0.08em] shadow-[0_16px_36px_rgba(14,165,233,0.18)] ${theme === 'dark' ? 'bg-sky-300 text-slate-950 hover:bg-sky-200' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
-                    >
-                      {copy.hero.primary}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActivePage('system')}
-                      className={`rounded-full border px-7 py-3 text-sm font-black uppercase tracking-[0.08em] ${theme === 'dark' ? 'border-slate-700 bg-slate-900/70 text-slate-100 hover:border-sky-400 shadow-[0_16px_36px_rgba(2,6,23,0.28)]' : 'border-slate-300 bg-white text-slate-900 hover:border-sky-500 shadow-[0_12px_28px_rgba(148,163,184,0.16)]'}`}
-                    >
-                      {copy.hero.secondary}
-                    </button>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {promiseCards.map(({ value, Icon }) => (
-                      <div
-                        key={value}
-                        className={`rounded-[1.35rem] border px-4 py-4 t1d-soft-card ${theme === 'dark' ? 'border-white/10 bg-white/[0.08]' : 'border-slate-200 bg-white/84'}`}
-                      >
-                        <span className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-sky-300/12 text-sky-200' : 'bg-sky-100 text-sky-700'}`}>
-                          <Icon size={17} />
-                        </span>
-                        <p className="mt-3 text-sm font-bold leading-relaxed">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className={`max-w-xl text-sm leading-relaxed ${mutedTextTone}`}>{publicMicro.homeNote}</p>
+          <section className="t1d-home">
+            <div id="choose-type" className="t1d-home-entry t1d-home-entry--top space-y-4 scroll-mt-24">
+              <div className={`flex flex-col gap-3 md:flex-row md:items-end md:justify-between ${isRTL ? 'md:flex-row-reverse' : ''}`}>
+                <div>
+                  <h1 className={`max-w-3xl text-2xl md:text-3xl font-black tracking-tight ${theme === 'dark' ? 'text-slate-50' : 'text-stone-900'}`}>
+                    {typeCopy.home.sectionTitle}
+                  </h1>
+                  <p className={`mt-2 max-w-3xl text-sm md:text-base leading-relaxed ${subtleTextTone}`}>{typeCopy.home.intro}</p>
                 </div>
-
-                <div className="grid gap-4">
-                  <div className={`rounded-[2.2rem] border t1d-soft-card-strong ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(19,34,52,0.94),rgba(15,28,44,0.92))]' : 'border-slate-200 bg-white/90'} p-5 md:p-6`}>
-                    <div className={`flex items-center justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <div>
-                        <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{publicUi.shortSummary}</p>
-                        <p className="mt-2 text-2xl md:text-3xl font-black tracking-tight">{copy.summary.body}</p>
+                <p className={`text-xs font-semibold ${mutedTextTone}`}>{typeCopy.home.footnote}</p>
+              </div>
+              <div className="t1d-home-grid t1d-home-grid--entry">
+                {(['type1', 'type2'] as const).map((typeKey) => {
+                  const card = typeCopy.home[typeKey];
+                  const typeCardClass = typeKey === 'type1'
+                    ? `${homeMintCardClass} t1d-home-entry-gate--type1`
+                    : `${homeAccentCardClass} t1d-home-entry-gate--type2`;
+                  const entryButtonClass = typeKey === 'type1'
+                    ? theme === 'dark' ? 't1d-btn-mint-primary t1d-btn-mint-primary--dark' : 't1d-btn-mint-primary t1d-btn-mint-primary--light'
+                    : primaryButtonClass;
+                  return (
+                    <article key={typeKey} className={`${typeCardClass} t1d-home-entry-gate`}>
+                      <div className="t1d-home-entry-gate__visual" aria-hidden="true">
+                        <HeroIllustration
+                          variant={typeKey === 'type1' ? 'family' : 'workspace'}
+                          theme={theme}
+                          diabetesType={typeKey}
+                        />
                       </div>
-                      <span className={`inline-flex h-14 w-14 items-center justify-center rounded-[1.3rem] ${theme === 'dark' ? 'bg-rose-400/10 text-rose-200' : 'bg-rose-50 text-rose-700'}`}>
-                        <BellRing size={22} />
-                      </span>
+                      <p className={`t1d-home-type-chip t1d-home-type-chip--${typeKey} ${theme === 'dark' ? 't1d-home-type-chip--dark' : ''}`}>{card.label}</p>
+                      <h2 className="mt-2 text-lg font-black tracking-tight">{card.title}</h2>
+                      <p className={`mt-2 text-sm leading-relaxed ${subtleTextTone}`}>{card.body}</p>
+                      <div className="t1d-home-type-points">
+                        {card.points.map((point) => (
+                          <div key={point} className={homeTypePointClass}>{point}</div>
+                        ))}
+                      </div>
+                      <button type="button" onClick={() => onSignUp(typeKey)} className={`${entryButtonClass} t1d-home-entry-gate__cta`}>
+                        {card.cta}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="t1d-home-panel t1d-home-panel--hero">
+              <div className="t1d-home-hero-split" aria-hidden="true">
+                <div className="t1d-home-hero-split__pane t1d-home-hero-split__pane--type1">
+                  <HeroIllustration variant="home" theme={theme} diabetesType="type1" priority />
+                  <span className="t1d-home-hero-split__label t1d-home-hero-split__label--type1">{typeCopy.home.type1.label}</span>
+                </div>
+                <div className="t1d-home-hero-split__pane t1d-home-hero-split__pane--type2">
+                  <HeroIllustration variant="workspace" theme={theme} diabetesType="type2" priority />
+                  <span className="t1d-home-hero-split__label t1d-home-hero-split__label--type2">{typeCopy.home.type2.label}</span>
+                </div>
+              </div>
+              <div className="t1d-home-hero-fade" aria-hidden="true" />
+              <div className="t1d-home-grid t1d-home-grid--hero">
+                <div className="flex flex-col gap-5">
+                  <div className={`t1d-home-hero-copy-panel ${theme === 'dark' ? 't1d-home-hero-copy-panel--dark' : 't1d-home-hero-copy-panel--light'}`}>
+                    <div className={`${heroBadgeClass} ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <Heart size={14} />
+                      <span>{copy.hero.eyebrow}</span>
                     </div>
-                    <p className={`mt-4 text-sm leading-relaxed ${subtleTextTone}`}>{publicMicro.nightIntro}</p>
-                    <div className="mt-5 space-y-3">
-                      {homeSteps.map((step, index) => (
-                        <div key={step} className={`rounded-2xl border px-4 py-4 t1d-soft-card ${theme === 'dark' ? 'border-white/10 bg-white/[0.07]' : 'border-slate-200 bg-slate-50/90'}`}>
-                          <div className={`flex items-start justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                            <div>
-                              <p className="text-sm font-black tracking-tight">{step}</p>
-                              <p className={`mt-2 text-sm leading-relaxed ${subtleTextTone}`}>
-                                {index === 0 ? copy.product.points[2] : index === 1 ? copy.family.points[1] : copy.family.points[2]}
-                              </p>
-                            </div>
-                            <span className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full text-[10px] font-black uppercase tracking-[0.12em] ${theme === 'dark' ? 'bg-sky-300 text-slate-950' : 'bg-slate-950 text-white'}`}>
-                              {index + 1}
-                            </span>
-                          </div>
-                        </div>
+                    <div className="space-y-3">
+                      <p className={`text-xl md:text-2xl font-black tracking-tight max-w-[22ch] ${theme === 'dark' ? 'text-slate-50' : 'text-stone-900'}`}>{copy.hero.title}</p>
+                      <p className={`max-w-2xl text-[0.98rem] md:text-[1.02rem] font-medium leading-relaxed ${subtleTextTone}`}>{publicMicro.homeSubtitle}</p>
+                      <p className={`text-sm font-semibold ${mutedTextTone}`}>{publicMicro.homeNote}</p>
+                    </div>
+                    <div className={`flex flex-wrap gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <button type="button" onClick={() => setActivePage('system')} className={secondaryButtonClass}>
+                        {copy.hero.secondary}
+                      </button>
+                    </div>
+                    <div className="t1d-home-chip-row">
+                      {promiseCards.map(({ value, Icon }) => (
+                        <span key={value} className={homeChipClass}>
+                          <Icon size={13} />
+                          {value}
+                        </span>
                       ))}
                     </div>
                   </div>
+                </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {confidenceCards.map((item, index) => (
-                      <article
-                        key={item.label}
-                        className={`rounded-[1.6rem] border p-4 t1d-soft-card ${index === 2 ? 'sm:col-span-2' : ''} ${theme === 'dark' ? 'border-white/10 bg-white/[0.07]' : 'border-slate-200 bg-white/85'}`}
-                      >
-                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${sectionLabelTone}`}>{item.label}</p>
-                        <p className={`mt-3 text-sm leading-relaxed ${subtleTextTone}`}>{item.body}</p>
-                      </article>
+                <article className={`${homeAccentCardClass} gap-4`}>
+                  <div className={`flex items-start justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div>
+                      <p className={softLabelClass}>{publicUi.shortSummary}</p>
+                      <p className="mt-2 text-xl md:text-2xl font-bold tracking-tight leading-snug">{copy.summary.body}</p>
+                    </div>
+                    <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-rose-400/10 text-rose-200' : 'bg-rose-50 text-rose-700'}`}>
+                      <BellRing size={20} />
+                    </span>
+                  </div>
+                  <p className={`text-sm leading-relaxed ${subtleTextTone}`}>{publicMicro.nightIntro}</p>
+                  <div className="t1d-home-flow">
+                    {homeSteps.map((step, index) => (
+                      <div key={step} className={homeFlowStepClass}>
+                        <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${theme === 'dark' ? 'bg-amber-300 text-stone-950' : 'bg-orange-600 text-white'}`}>
+                          {index + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-black tracking-tight">{step}</p>
+                          <p className={`mt-1 text-sm leading-relaxed ${subtleTextTone}`}>
+                            {index === 0 ? copy.product.points[2] : index === 1 ? copy.family.points[1] : copy.family.points[2]}
+                          </p>
+                        </div>
+                        <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>
+                          {index === 0 ? <BellRing size={15} /> : index === 1 ? <Users size={15} /> : <HeartHandshake size={15} />}
+                        </span>
+                      </div>
                     ))}
                   </div>
-                </div>
+                  <div className="t1d-home-states">
+                    {confidenceCards.map((item) => (
+                      <div key={item.label} className={homeStateClass}>
+                        <p className={softLabelClass}>{item.label}</p>
+                        <p className={`mt-1 text-[11px] leading-snug font-semibold ${subtleTextTone}`}>{item.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
               </div>
-            </section>
+            </div>
 
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {roleCards.map(({ title, body, Icon }) => (
-                  <article key={title} className={`rounded-[1.9rem] border ${cardTone} p-6 md:p-7`}>
-                    <span className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-sky-400/12 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
-                      <Icon size={18} />
-                    </span>
-                    <h2 className="mt-4 text-2xl font-black tracking-tight">{title}</h2>
-                    <p className={`mt-3 text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{body}</p>
-                  </article>
-                ))}
-              </div>
-              <article className={`rounded-[2rem] border t1d-soft-shell ${theme === 'dark' ? 'border-slate-800 t1d-frost-dark' : 'border-slate-200 t1d-frost-light'} p-6 md:p-7`}>
-                <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{publicUi.coreIdea}</p>
-                <p className="mt-4 text-2xl md:text-3xl font-black tracking-tight">{copy.principle.body}</p>
-                <div className="mt-6 grid gap-3">
+            <LandingNutritionShowcase lang={lang} theme={theme} isRTL={isRTL} />
+
+            <div className="t1d-home-grid t1d-home-grid--features">
+              {concernCards.map(({ title, body, Icon }, index) => (
+                <article key={title} className={index === 0 ? homeMintCardClass : homeCardClass}>
+                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${index === 0 ? theme === 'dark' ? 'bg-emerald-400/12 text-emerald-300' : 'bg-emerald-100 text-emerald-700' : theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>
+                    <Icon size={17} />
+                  </span>
+                  <h2 className="mt-3 text-lg font-black tracking-tight">{title}</h2>
+                  <p className={`mt-2 text-sm leading-relaxed ${subtleTextTone}`}>{body}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="t1d-home-grid t1d-home-grid--roles">
+              {roleCards.map(({ title, body, Icon }) => (
+                <article key={title} className={homeCardClass}>
+                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>
+                    <Icon size={17} />
+                  </span>
+                  <h2 className="mt-3 text-base font-black tracking-tight">{title}</h2>
+                  <p className={`mt-2 text-sm leading-relaxed ${subtleTextTone}`}>{body}</p>
+                </article>
+              ))}
+              <article className={homeAccentCardClass}>
+                <p className={softLabelClass}>{publicUi.coreIdea}</p>
+                <p className="mt-2 text-xl font-black tracking-tight leading-tight">{copy.principle.body}</p>
+                <div className="t1d-home-point-list">
                   {copy.product.points.map((point) => (
-                    <div key={point} className={`rounded-2xl border px-4 py-3 text-sm font-semibold t1d-soft-card ${theme === 'dark' ? 'border-white/10 bg-white/[0.07]' : 'border-slate-200 bg-white/85'}`}>
-                      {point}
-                    </div>
+                    <div key={point} className={homePointClass}>{point}</div>
                   ))}
                 </div>
               </article>
-            </section>
+            </div>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {concernCards.map(({ title, body, Icon }, index) => (
-                <article
-                  key={title}
-                  className={`rounded-[1.8rem] border p-5 md:p-6 ${index === 0 ? theme === 'dark' ? 'border-emerald-400/20 bg-[linear-gradient(160deg,rgba(24,56,54,0.45),rgba(18,38,44,0.55))] t1d-soft-card-strong' : 'border-emerald-200 bg-emerald-50/70 t1d-soft-card-strong' : cardTone}`}
-                >
-                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${index === 0 ? theme === 'dark' ? 'bg-emerald-400/12 text-emerald-300' : 'bg-emerald-100 text-emerald-700' : theme === 'dark' ? 'bg-sky-400/12 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
-                    <Icon size={18} />
-                  </span>
-                  <h2 className="mt-4 text-xl font-black tracking-tight">{title}</h2>
-                  <p className={`mt-3 text-sm leading-relaxed ${subtleTextTone}`}>{body}</p>
-                </article>
-              ))}
-            </section>
-
-            <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-7`}>
-              <div className={`flex items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <article className={`${homeCardClass} gap-4`}>
+              <div className={`flex items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <div>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{publicUi.limits}</p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight">{publicMicro.limitsIntro}</h2>
+                  <p className={softLabelClass}>{publicUi.limits}</p>
+                  <h2 className="mt-2 text-lg md:text-xl font-black tracking-tight leading-snug">{publicMicro.limitsIntro}</h2>
                 </div>
-                <span className={`hidden md:inline-flex h-12 w-12 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-slate-900 text-slate-200 border border-slate-700' : 'bg-white text-slate-700 border border-slate-200'}`}>
-                  <AlertTriangle size={18} />
+                <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-slate-900 text-slate-200 border border-slate-700' : 'bg-white text-slate-700 border border-slate-200'}`}>
+                  <AlertTriangle size={17} />
                 </span>
               </div>
-              <div className="mt-6 grid gap-4 md:grid-cols-4">
+              <div className="t1d-home-legal-grid">
                 {copy.trust.legal.map((item) => (
-                  <article key={item} className={`rounded-[1.35rem] border p-4 t1d-soft-card ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(24,36,53,0.9),rgba(20,31,46,0.86))]' : 'border-slate-200 bg-slate-50/90'}`}>
-                    <p className="text-sm font-semibold leading-relaxed">{item}</p>
-                  </article>
+                  <div key={item} className={homePointClass}>{item}</div>
                 ))}
               </div>
-            </section>
+            </article>
           </section>
         ) : null}
 
         {activePage === 'system' ? (
           <section className="space-y-6">
+            {typePageNote('system')}
             <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-                <article className={`rounded-[1.7rem] border p-5 md:p-6 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(23,38,58,0.92),rgba(18,31,49,0.88))]' : 'border-slate-200 bg-slate-50/90'}`}>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{publicUi.coreIdea}</p>
-                  <h2 className="mt-3 text-3xl md:text-4xl font-black tracking-tight">{publicUi.howItWorks}</h2>
-                  <p className={`mt-4 text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{publicMicro.systemIntro}</p>
-                </article>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {copy.states.items.slice(0, 3).map((item) => (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {copy.states.items.slice(0, 3).map((item) => (
                     <article key={item.name} className={`rounded-[1.4rem] border p-4 ${theme === 'dark' ? 'border-white/10 bg-white/[0.07]' : 'border-slate-200 bg-white/85'}`}>
-                      <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${sectionLabelTone}`}>{item.name}</p>
+                      <p className={softLabelClass}>{item.name}</p>
                       <p className={`mt-3 text-sm leading-relaxed ${subtleTextTone}`}>{item.body}</p>
                     </article>
                   ))}
-                </div>
               </div>
             </section>
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {architectureCards.map(({ title, body, Icon }) => (
                 <article key={title} className={`rounded-[1.6rem] border p-5 md:p-6 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(18,32,49,0.92),rgba(16,28,43,0.88))]' : 'border-slate-200 bg-white/95'}`}>
-                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-sky-400/12 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
+                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>
                     <Icon size={18} />
                   </span>
                   <h3 className="mt-4 text-lg font-black tracking-tight">{title}</h3>
@@ -729,11 +808,11 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
 
         {activePage === 'night' ? (
           <section className="space-y-6">
+            {typePageNote('night')}
             <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.02fr_0.98fr]">
-              <article className={`rounded-[2rem] border ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(23,38,58,0.94),rgba(18,31,49,0.92))]' : 'border-slate-200 bg-slate-950 text-white'} p-6 md:p-8`}>
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight">{publicUi.nightSupport}</h2>
-                <p className="mt-3 max-w-2xl text-sm md:text-[15px] leading-relaxed text-slate-200/90">{publicMicro.nightIntro}</p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              <article className={`rounded-[2rem] border ${theme === 'dark' ? 'border-indigo-500/25 bg-[linear-gradient(160deg,rgba(49,46,129,0.55),rgba(30,27,75,0.72))]' : 'border-indigo-200 bg-indigo-950 text-white'} p-6 md:p-8`}>
+                <p className={softLabelClass}>{copy.night.escalationTitle}</p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   {copy.night.points.slice(0, 3).map((item) => (
                     <div key={item} className="rounded-[1.4rem] bg-white/[0.12] px-4 py-4 text-sm font-semibold text-slate-100/92">
                       {item}
@@ -742,7 +821,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                 </div>
               </article>
               <article className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-                <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{publicUi.shortSummary}</p>
+                <p className={softLabelClass}>{publicUi.shortSummary}</p>
                 <p className="mt-3 text-3xl font-black tracking-tight">{copy.summary.body}</p>
                 <div className="mt-5 grid gap-4">
                   {copy.states.items.slice(2, 5).map((item) => (
@@ -755,7 +834,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               </article>
             </section>
             <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-              <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{copy.night.escalationTitle}</p>
+              <p className={softLabelClass}>{copy.night.escalationTitle}</p>
               <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {copy.night.escalation.map((item, index) => (
                   <div key={item} className={`rounded-[1.35rem] border p-4 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(23,38,58,0.92),rgba(18,31,49,0.88))] text-slate-200' : 'border-slate-200 bg-slate-50/90 text-slate-700'}`}>
@@ -772,23 +851,18 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
 
         {activePage === 'family' ? (
           <section className="space-y-6">
+            {typePageNote('family')}
             <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.96fr_1.04fr]">
-                <article>
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight">{publicUi.familySupport}</h2>
-                  <p className={`mt-3 text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{publicMicro.familyIntro}</p>
-                </article>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {roleCards.map(({ title, body, Icon }) => (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {roleCards.map(({ title, body, Icon }) => (
                     <article key={title} className={`rounded-[1.4rem] border p-4 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(23,38,58,0.92),rgba(18,31,49,0.88))]' : 'border-slate-200 bg-slate-50/90'}`}>
-                      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-sky-400/12 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
+                      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>
                         <Icon size={16} />
                       </span>
                       <h3 className="mt-3 text-base font-black tracking-tight">{title}</h3>
                       <p className={`mt-2 text-sm leading-relaxed ${subtleTextTone}`}>{body}</p>
                     </article>
                   ))}
-                </div>
               </div>
             </section>
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -802,14 +876,13 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
         ) : null}
 
         {activePage === 'how' ? (
-          <section className="space-y-6">
-            <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-              <div className="max-w-4xl space-y-4">
-                <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{knowledgeLabels.how}</p>
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight">{howContent.heroTitle}</h2>
-                <p className={`text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{howContent.heroBody}</p>
-              </div>
+          contentPending || !howContent ? (
+            <section className={`rounded-[2rem] border ${cardTone} p-8 md:p-10`}>
+              <p className={softLabelClass}>{knowledgePageLabels.explore}</p>
             </section>
+          ) : (
+          <section className="space-y-6">
+            {typePageNote('system')}
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {howContent.steps.map((step) => (
                 <article key={step.title} className={`rounded-[1.6rem] border p-5 md:p-6 ${cardTone}`}>
@@ -818,7 +891,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                 </article>
               ))}
             </section>
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               {howContent.columns.map((column) => (
                 <article key={column.title} className={`rounded-[1.8rem] border p-5 md:p-6 ${cardTone}`}>
                   <h3 className="text-2xl font-black tracking-tight">{column.title}</h3>
@@ -833,17 +906,16 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               ))}
             </section>
           </section>
+          )
         ) : null}
 
         {activePage === 'faq' ? (
-          <section className="space-y-6">
-            <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-              <div className="max-w-4xl space-y-4">
-                <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{knowledgeLabels.faq}</p>
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight">{knowledgePageLabels.faqTitle}</h2>
-                <p className={`text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{knowledgePageLabels.accordionHint}</p>
-              </div>
+          contentPending ? (
+            <section className={`rounded-[2rem] border ${cardTone} p-8 md:p-10`}>
+              <p className={softLabelClass}>{knowledgeLabels.faq}</p>
             </section>
+          ) : (
+          <section className="space-y-6">
             <section className="space-y-3">
               {faqItems.map((item) => {
                 const open = faqOpen === item.question;
@@ -869,22 +941,21 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               })}
             </section>
           </section>
+          )
         ) : null}
 
         {activePage === 'learn' ? (
+          contentPending ? (
+            <section className={`rounded-[2rem] border ${cardTone} p-8 md:p-10`}>
+              <p className={softLabelClass}>{knowledgeLabels.learn}</p>
+            </section>
+          ) : (
           <section className="space-y-6">
             <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-4">
-                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{knowledgeLabels.learn}</p>
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight">{knowledgePageLabels.learnTitle}</h2>
-                  <p className={`text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>
-                    {knowledgeUiCopy.learningIntro[lang]}
-                  </p>
-                  <p className={`text-sm leading-relaxed ${mutedTextTone}`}>{knowledgePageLabels.articleHint}</p>
-                </div>
+                <p className={`text-sm leading-relaxed ${mutedTextTone}`}>{knowledgePageLabels.articleHint}</p>
                 <div className={`rounded-[1.6rem] border p-5 ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(24,36,53,0.9),rgba(20,31,46,0.86))]' : 'border-slate-200 bg-slate-50/90'}`}>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${sectionLabelTone}`}>{knowledgePageLabels.search}</p>
+                  <p className={softLabelClass}>{knowledgePageLabels.search}</p>
                   <input
                     value={learningQuery}
                     onChange={(event) => setLearningQuery(event.target.value)}
@@ -901,10 +972,10 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                       key={category}
                       type="button"
                       onClick={() => setLearningCategory(category === knowledgePageLabels.all ? 'all' : category)}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                         isActive
                           ? theme === 'dark'
-                            ? 'bg-sky-300 text-slate-950'
+                            ? 'bg-orange-600 text-white'
                             : 'bg-slate-950 text-white'
                           : index % 4 === 1
                             ? theme === 'dark'
@@ -919,8 +990,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                                   ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
                                   : 'border border-amber-200 bg-amber-50 text-amber-700'
                                 : theme === 'dark'
-                                  ? 'border border-sky-400/20 bg-sky-400/10 text-sky-100'
-                                  : 'border border-sky-200 bg-sky-50 text-sky-700'
+                                  ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
+                                  : 'border border-orange-200 bg-orange-50 text-orange-800'
                       }`}
                     >
                       {category}
@@ -930,7 +1001,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               </div>
               <div className={`mt-6 rounded-[1.5rem] border p-4 md:p-5 ${theme === 'dark' ? 'border-white/10 bg-white/[0.06]' : 'border-slate-200 bg-white/80'}`}>
                 <div className={`flex items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${sectionLabelTone}`}>{knowledgePageLabels.explore}</p>
+                  <p className={softLabelClass}>{knowledgePageLabels.explore}</p>
                   <span className={`text-xs ${mutedTextTone}`}>{knowledgePageLabels.learnTitle}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -943,10 +1014,10 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                       key={item.id}
                       type="button"
                       onClick={() => jumpToPageSection(item.id)}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] ${
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
                         index === 0
                           ? theme === 'dark'
-                            ? 'bg-sky-300 text-slate-950'
+                            ? 'bg-orange-600 text-white'
                             : 'bg-slate-950 text-white'
                           : index === 1
                             ? theme === 'dark'
@@ -971,8 +1042,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                   className={`rounded-[1.6rem] border p-5 md:p-6 ${
                     index === 0
                       ? theme === 'dark'
-                        ? 'border-sky-400/20 bg-[linear-gradient(160deg,rgba(30,53,83,0.55),rgba(20,36,57,0.62))]'
-                        : 'border-sky-200 bg-sky-50/80'
+                        ? 'border-amber-400/20 bg-[linear-gradient(160deg,rgba(42,28,24,0.55),rgba(28,22,34,0.62))]'
+                        : 'border-orange-200 bg-orange-50/80'
                       : index === 1
                         ? theme === 'dark'
                           ? 'border-rose-400/20 bg-[linear-gradient(160deg,rgba(70,34,52,0.45),rgba(44,24,36,0.55))]'
@@ -1007,7 +1078,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                         className={`w-full ${isRTL ? 'text-right' : 'text-left'}`}
                       >
                         <div className={`flex items-center justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                          <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'bg-sky-400/12 text-sky-200' : 'bg-sky-100 text-sky-700'}`}>{article.category}</span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>{article.category}</span>
                           <span className={`text-xs ${mutedTextTone}`}>{article.terms.join(' · ')}</span>
                         </div>
                         <div className={`mt-4 flex items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -1028,8 +1099,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                               className={`rounded-[1.25rem] border px-4 py-4 ${
                                 sectionIndex === 0
                                   ? theme === 'dark'
-                                    ? 'border-sky-400/15 bg-[linear-gradient(160deg,rgba(29,52,80,0.42),rgba(20,36,57,0.52))]'
-                                    : 'border-sky-200 bg-sky-50/80'
+                                    ? 'border-amber-400/15 bg-[linear-gradient(160deg,rgba(42,28,24,0.42),rgba(28,22,34,0.52))]'
+                                    : 'border-orange-200 bg-orange-50/80'
                                   : theme === 'dark'
                                     ? 'border-white/10 bg-white/[0.07]'
                                     : 'border-slate-200 bg-white/85'
@@ -1062,7 +1133,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                       <div key={item.term} className={`rounded-[1.25rem] border px-4 py-4 ${theme === 'dark' ? 'border-white/10 bg-white/[0.07]' : 'border-slate-200 bg-white/85'}`}>
                         <div className={`flex items-center justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                           <p className="text-base font-black tracking-tight">{item.term}</p>
-                          <span className={`text-[10px] font-black uppercase tracking-[0.16em] ${sectionLabelTone}`}>{item.category}</span>
+                          <span className={`text-xs font-semibold ${softLabelClass}`}>{item.category}</span>
                         </div>
                         <p className={`mt-2 text-sm leading-relaxed ${subtleTextTone}`}>{item.short}</p>
                       </div>
@@ -1084,8 +1155,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                         className={`rounded-[1.25rem] border px-4 py-4 text-sm font-semibold ${
                           index === 0
                             ? theme === 'dark'
-                              ? 'border-sky-400/15 bg-[linear-gradient(160deg,rgba(29,52,80,0.42),rgba(20,36,57,0.52))]'
-                              : 'border-sky-200 bg-sky-50/80'
+                              ? 'border-amber-400/15 bg-[linear-gradient(160deg,rgba(42,28,24,0.42),rgba(28,22,34,0.52))]'
+                              : 'border-orange-200 bg-orange-50/80'
                             : index === 1
                               ? theme === 'dark'
                                 ? 'border-rose-400/15 bg-[linear-gradient(160deg,rgba(70,34,52,0.38),rgba(44,24,36,0.48))]'
@@ -1107,22 +1178,21 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               </aside>
             </section>
           </section>
+          )
         ) : null}
 
         {activePage === 'news' ? (
+          contentPending ? (
+            <section className={`rounded-[2rem] border ${cardTone} p-8 md:p-10`}>
+              <p className={softLabelClass}>{knowledgeLabels.news}</p>
+            </section>
+          ) : (
           <section className="space-y-6">
             <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-4">
-                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{knowledgeLabels.news}</p>
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight">{knowledgePageLabels.newsTitle}</h2>
-                  <p className={`text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>
-                    {knowledgeUiCopy.newsIntro[lang]}
-                  </p>
-                  <p className={`text-sm leading-relaxed ${mutedTextTone}`}>{knowledgePageLabels.newsNote}</p>
-                </div>
-                <div className={`rounded-[1.6rem] border p-5 ${theme === 'dark' ? 'border-cyan-400/15 bg-[linear-gradient(160deg,rgba(30,53,83,0.52),rgba(20,36,57,0.62))]' : 'border-sky-200 bg-sky-50/90'}`}>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${sectionLabelTone}`}>{knowledgePageLabels.searchNews}</p>
+                <p className={`text-sm leading-relaxed ${mutedTextTone}`}>{knowledgePageLabels.newsNote}</p>
+                <div className={`rounded-[1.6rem] border p-5 ${theme === 'dark' ? 'border-amber-400/15 bg-[linear-gradient(160deg,rgba(42,28,24,0.42),rgba(28,22,34,0.52))]' : 'border-orange-200 bg-orange-50/90'}`}>
+                  <p className={softLabelClass}>{knowledgePageLabels.searchNews}</p>
                   <input
                     value={newsQuery}
                     onChange={(event) => setNewsQuery(event.target.value)}
@@ -1139,10 +1209,10 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                       key={category}
                       type="button"
                       onClick={() => setNewsCategory(category === knowledgePageLabels.all ? 'all' : category)}
-                      className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                         isActive
                           ? theme === 'dark'
-                            ? 'bg-sky-300 text-slate-950'
+                            ? 'bg-orange-600 text-white'
                             : 'bg-slate-950 text-white'
                           : index % 4 === 1
                             ? theme === 'dark'
@@ -1157,8 +1227,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                                   ? 'border border-rose-400/20 bg-rose-400/10 text-rose-100'
                                   : 'border border-rose-200 bg-rose-50 text-rose-700'
                                 : theme === 'dark'
-                                  ? 'border border-sky-400/20 bg-sky-400/10 text-sky-100'
-                                  : 'border border-sky-200 bg-sky-50 text-sky-700'
+                                  ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
+                                  : 'border border-orange-200 bg-orange-50 text-orange-800'
                       }`}
                     >
                       {category}
@@ -1171,16 +1241,16 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_0.85fr]">
                 <article className={`rounded-[2rem] border p-6 md:p-8 ${
                   theme === 'dark'
-                    ? 'border-sky-400/20 bg-[linear-gradient(160deg,rgba(30,53,83,0.56),rgba(21,37,58,0.66))]'
-                    : 'border-sky-200 bg-sky-50/90'
+                    ? 'border-amber-400/20 bg-[linear-gradient(160deg,rgba(42,28,24,0.56),rgba(28,22,34,0.66))]'
+                    : 'border-orange-200 bg-orange-50/90'
                 }`}>
                   <div className={`flex items-center justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'bg-white/12 text-sky-100' : 'bg-white text-sky-700'}`}>{featuredNews.category}</span>
-                    <span className={`text-xs ${theme === 'dark' ? 'text-sky-100/80' : 'text-sky-700/80'}`}>{featuredNews.horizon}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme === 'dark' ? 'bg-white/12 text-amber-100' : 'bg-white text-orange-800'}`}>{featuredNews.category}</span>
+                    <span className={`text-xs ${theme === 'dark' ? 'text-amber-100/80' : 'text-orange-800/80'}`}>{featuredNews.horizon}</span>
                   </div>
-                  <p className={`mt-5 text-[10px] font-black uppercase tracking-[0.24em] ${theme === 'dark' ? 'text-sky-100/80' : 'text-sky-700'}`}>{knowledgePageLabels.updated}</p>
+                  <p className={`mt-5 ${softLabelClass}`}>{knowledgePageLabels.updated}</p>
                   <h3 className="mt-3 max-w-3xl text-3xl md:text-4xl font-black tracking-tight">{featuredNews.title}</h3>
-                  <p className={`mt-4 max-w-3xl text-sm md:text-[15px] leading-relaxed ${theme === 'dark' ? 'text-sky-50/88' : 'text-slate-700'}`}>{featuredNews.summary}</p>
+                  <p className={`mt-4 max-w-3xl text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{featuredNews.summary}</p>
                   <div className={`mt-6 inline-flex rounded-[1.2rem] border px-4 py-3 ${theme === 'dark' ? 'border-white/10 bg-white/[0.08] text-slate-100' : 'border-slate-200 bg-white text-slate-800'}`}>
                     <p className="text-sm font-semibold">{featuredNews.status}</p>
                   </div>
@@ -1192,8 +1262,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                       className={`rounded-[1.8rem] border p-5 md:p-6 ${
                         item.tone === 'sky'
                           ? theme === 'dark'
-                            ? 'border-sky-400/20 bg-[linear-gradient(160deg,rgba(30,53,83,0.55),rgba(20,36,57,0.62))]'
-                            : 'border-sky-200 bg-sky-50/80'
+                            ? 'border-amber-400/20 bg-[linear-gradient(160deg,rgba(42,28,24,0.55),rgba(28,22,34,0.62))]'
+                            : 'border-orange-200 bg-orange-50/80'
                           : theme === 'dark'
                             ? 'border-emerald-400/20 bg-[linear-gradient(160deg,rgba(24,56,54,0.45),rgba(18,38,44,0.55))]'
                             : 'border-emerald-200 bg-emerald-50/80'
@@ -1213,8 +1283,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                   className={`rounded-[1.6rem] border p-5 md:p-6 ${
                     item.tone === 'sky'
                       ? theme === 'dark'
-                        ? 'border-sky-400/20 bg-[linear-gradient(160deg,rgba(30,53,83,0.55),rgba(20,36,57,0.62))]'
-                        : 'border-sky-200 bg-sky-50/80'
+                        ? 'border-amber-400/20 bg-[linear-gradient(160deg,rgba(42,28,24,0.55),rgba(28,22,34,0.62))]'
+                        : 'border-orange-200 bg-orange-50/80'
                       : item.tone === 'emerald'
                         ? theme === 'dark'
                           ? 'border-emerald-400/20 bg-[linear-gradient(160deg,rgba(24,56,54,0.45),rgba(18,38,44,0.55))]'
@@ -1240,8 +1310,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                   className={`rounded-[1.8rem] border p-5 md:p-6 ${
                     index % 4 === 0
                       ? theme === 'dark'
-                        ? 'border-sky-400/20 bg-[linear-gradient(160deg,rgba(30,53,83,0.48),rgba(21,37,58,0.58))]'
-                        : 'border-sky-200 bg-sky-50/85'
+                        ? 'border-amber-400/20 bg-[linear-gradient(160deg,rgba(42,28,24,0.48),rgba(28,22,34,0.58))]'
+                        : 'border-orange-200 bg-orange-50/85'
                       : index % 4 === 1
                         ? theme === 'dark'
                           ? 'border-emerald-400/20 bg-[linear-gradient(160deg,rgba(24,56,54,0.42),rgba(18,38,44,0.52))]'
@@ -1256,13 +1326,13 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                   }`}
                 >
                   <div className={`flex items-center justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${theme === 'dark' ? 'bg-sky-400/12 text-sky-200' : 'bg-sky-100 text-sky-700'}`}>{item.category}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${theme === 'dark' ? 'bg-amber-400/12 text-amber-200' : 'bg-orange-100 text-orange-800'}`}>{item.category}</span>
                     <span className={`text-xs ${mutedTextTone}`}>{item.horizon}</span>
                   </div>
                   <h3 className="mt-4 text-2xl font-black tracking-tight">{item.title}</h3>
                   <p className={`mt-3 text-sm leading-relaxed ${subtleTextTone}`}>{item.summary}</p>
                   <div className={`mt-5 rounded-[1.25rem] border px-4 py-4 ${theme === 'dark' ? 'border-white/10 bg-white/[0.09]' : 'border-slate-200 bg-white/90'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${sectionLabelTone}`}>{knowledgePageLabels.updated}</p>
+                    <p className={softLabelClass}>{knowledgePageLabels.updated}</p>
                     <p className="mt-2 text-sm font-semibold">{item.status}</p>
                   </div>
                 </article>
@@ -1274,17 +1344,15 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               ) : null}
             </section>
           </section>
+          )
         ) : null}
 
         {activePage === 'trust' ? (
           <section className="space-y-6">
-            <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight">{publicUi.limits}</h2>
-              <p className={`mt-3 max-w-3xl text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{publicMicro.limitsIntro}</p>
-            </section>
+            {typePageNote('trust')}
             <section className="grid grid-cols-1 gap-6 lg:grid-cols-[0.95fr_1.05fr]">
               <article className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-                <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{copy.trust.legalTitle}</p>
+                <p className={softLabelClass}>{copy.trust.legalTitle}</p>
                 <div className="mt-4 grid gap-3">
                   {copy.trust.legal.map((item) => (
                     <div key={item} className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${theme === 'dark' ? 'border-slate-700/80 bg-[linear-gradient(160deg,rgba(23,38,58,0.92),rgba(18,31,49,0.88))] text-slate-200' : 'border-slate-200 bg-slate-50/90 text-slate-700'}`}>
@@ -1294,10 +1362,10 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                 </div>
               </article>
               <article className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-                <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{copy.trust.mvpTitle}</p>
+                <p className={softLabelClass}>{copy.trust.mvpTitle}</p>
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className={`rounded-[1.4rem] p-5 ${theme === 'dark' ? 'bg-[linear-gradient(160deg,rgba(24,56,54,0.45),rgba(18,38,44,0.55))]' : 'bg-emerald-50'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>{copy.ui.mvpIn}</p>
+                    <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>{copy.ui.mvpIn}</p>
                     <div className="mt-3 space-y-2">
                       {copy.trust.mvpIn.map((item) => (
                         <p key={item} className="text-sm font-semibold">{item}</p>
@@ -1305,7 +1373,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                     </div>
                   </div>
                   <div className={`rounded-[1.4rem] p-5 ${theme === 'dark' ? 'bg-[linear-gradient(160deg,rgba(66,32,48,0.42),rgba(44,22,34,0.52))]' : 'bg-rose-50'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${theme === 'dark' ? 'text-rose-300' : 'text-rose-700'}`}>{copy.ui.mvpOut}</p>
+                    <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-rose-300' : 'text-rose-700'}`}>{copy.ui.mvpOut}</p>
                     <div className="mt-3 space-y-2">
                       {copy.trust.mvpOut.map((item) => (
                         <p key={item} className="text-sm font-semibold">{item}</p>
@@ -1319,23 +1387,21 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
         ) : null}
 
         {activePage === 'privacy' || activePage === 'terms' || activePage === 'medical' || activePage === 'compliance' ? (
+          contentPending || !legalPageContent ? (
+            <section className={`rounded-[2rem] border ${cardTone} p-8 md:p-10`}>
+              <p className={softLabelClass}>{legalLabels[activePage as LegalPage]}</p>
+            </section>
+          ) : (
           <section className="space-y-6">
             {(() => {
               const legalPage = activePage as LegalPage;
-              const legalContent = LEGAL_PAGE_CONTENT[legalPage];
+              const legalContent = legalPageContent[legalPage];
 
               return (
                 <>
-                  <section className={`rounded-[2rem] border ${cardTone} p-6 md:p-8`}>
-                    <div className="max-w-4xl space-y-4">
-                      <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{legalLabels[legalPage]}</p>
-                      <h2 className="text-3xl md:text-4xl font-black tracking-tight">{legalContent.title}</h2>
-                      <p className={`text-sm md:text-[15px] leading-relaxed ${subtleTextTone}`}>{legalContent.intro}</p>
-                    </div>
-                  </section>
                   <section className="grid grid-cols-1 gap-4 xl:grid-cols-[0.32fr_0.68fr]">
                     <aside className={`rounded-[1.6rem] border p-5 md:p-6 xl:sticky xl:top-24 self-start ${cardTone}`}>
-                      <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{knowledgePageLabels.explore}</p>
+                      <p className={softLabelClass}>{knowledgePageLabels.explore}</p>
                       <div className="mt-4 grid gap-2">
                         {legalContent.sections.map((section, index) => (
                           <button
@@ -1344,8 +1410,8 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                             onClick={() => jumpToPageSection(`${legalPage}-section-${index}`)}
                             className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${isRTL ? 'text-right' : 'text-left'} ${
                               theme === 'dark'
-                                ? 'border-white/10 bg-white/[0.06] text-slate-200 hover:border-sky-400/25 hover:bg-sky-400/10'
-                                : 'border-slate-200 bg-white/85 text-slate-700 hover:border-sky-300 hover:bg-sky-50/80'
+                                ? 'border-white/10 bg-white/[0.06] text-slate-200 hover:border-amber-400/25 hover:bg-amber-400/10'
+                                : 'border-slate-200 bg-white/85 text-slate-700 hover:border-orange-300 hover:bg-orange-50/80'
                             }`}
                           >
                             {section.title}
@@ -1365,7 +1431,7 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
                             <ul className={`space-y-2 text-sm leading-relaxed ${subtleTextTone}`}>
                               {section.bullets.map((bullet) => (
                                 <li key={bullet} className={`flex gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                  <span className={`mt-1 h-2 w-2 rounded-full ${theme === 'dark' ? 'bg-sky-300' : 'bg-sky-600'}`} />
+                                  <span className={`mt-1 h-2 w-2 rounded-full ${theme === 'dark' ? 'bg-amber-300' : 'bg-orange-600'}`} />
                                   <span>{bullet}</span>
                                 </li>
                               ))}
@@ -1380,110 +1446,68 @@ export const T1DPublicLandingView: React.FC<T1DPublicLandingViewProps> = ({
               );
             })()}
           </section>
+          )
+        ) : null}
+
+        {activePage === 'downloadDesktop' ? (
+          <DownloadInstallPanel
+            theme={theme}
+            isRTL={isRTL}
+            copy={downloadCopy.desktop}
+            platform="desktop"
+            otherPlatformHref={pagePaths.downloadMobile}
+            otherPlatformLabel={downloadCopy.desktop.otherPlatformLabel}
+            onOtherPlatform={() => setActivePage('downloadMobile')}
+          />
+        ) : null}
+
+        {activePage === 'downloadMobile' ? (
+          <DownloadInstallPanel
+            theme={theme}
+            isRTL={isRTL}
+            copy={downloadCopy.mobile}
+            platform="mobile"
+            otherPlatformHref={pagePaths.downloadDesktop}
+            otherPlatformLabel={downloadCopy.mobile.otherPlatformLabel}
+            onOtherPlatform={() => setActivePage('downloadDesktop')}
+          />
         ) : null}
       </main>
 
-      <footer className={`w-full border-t py-14 px-6 mt-auto relative overflow-hidden ${theme === 'dark' ? 'border-white/10 bg-[linear-gradient(180deg,rgba(7,15,25,0.4),rgba(9,17,26,0.82))]' : 'border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.35),rgba(255,255,255,0.8))]'}`}>
-        <div className={`pointer-events-none absolute -top-16 left-1/4 w-52 h-52 rounded-full blur-[95px] ${theme === 'dark' ? 'bg-sky-500/12' : 'bg-sky-100/70'}`} />
-        <div className={`pointer-events-none absolute bottom-0 right-1/4 w-56 h-56 rounded-full blur-[100px] ${theme === 'dark' ? 'bg-emerald-500/10' : 'bg-emerald-100/70'}`} />
-        <div className="max-w-7xl mx-auto space-y-10 relative z-10">
-          <div className={`grid grid-cols-1 gap-10 border-b pb-10 ${theme === 'dark' ? 'border-white/10' : 'border-slate-200'} md:grid-cols-[1.15fr_0.8fr_0.8fr_0.9fr_0.85fr]`}>
-            <div className={`space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${theme === 'dark' ? 'bg-sky-400/12 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
-                  <ShieldAlert size={20} />
-                </span>
-                <div>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${sectionLabelTone}`}>{copy.ui.biomathCore}</p>
-                  <p className="text-2xl font-black tracking-tight">{copy.brand}</p>
-                </div>
-              </div>
-              <p className={`text-base font-semibold ${mutedTextTone}`}>{copy.hero.eyebrow}</p>
-              <p className={`max-w-md text-sm leading-relaxed ${subtleTextTone}`}>{legalUi.classicNote}</p>
-            </div>
-
-            <nav className="space-y-4">
-              <p className={`text-xs font-black uppercase tracking-[0.3em] ${mutedTextTone}`}>{copy.footerSections.product}</p>
-              <div className={`flex flex-col gap-3 text-[13px] ${subtleTextTone}`}>
-                {footerProductLinks.map((page) => (
-                  <button key={page.id} onClick={() => setActivePage(page.id)} className={footerActionClass}>
-                    {page.label}
-                  </button>
-                ))}
-              </div>
-            </nav>
-
-            <nav className="space-y-4">
-              <p className={`text-xs font-black uppercase tracking-[0.3em] ${mutedTextTone}`}>{knowledgePageLabels.explore}</p>
-              <div className={`flex flex-col gap-3 text-[13px] ${subtleTextTone}`}>
-                {footerKnowledgeLinks.map((page) => (
-                  <button key={page.id} onClick={() => setActivePage(page.id)} className={footerActionClass}>
-                    {page.label}
-                  </button>
-                ))}
-              </div>
-            </nav>
-
-            <nav className="space-y-4">
-              <p className={`text-xs font-black uppercase tracking-[0.3em] ${mutedTextTone}`}>{copy.footerSections.legal}</p>
-              <div className={`flex flex-col gap-3 text-[13px] ${subtleTextTone}`}>
-                {footerLegalLinks.map((page) => (
-                  <button key={page.id} onClick={() => setActivePage(page.id)} className={footerActionClass}>
-                    {page.label}
-                  </button>
-                ))}
-              </div>
-            </nav>
-
-            <div className="space-y-4">
-              <p className={`text-xs font-black uppercase tracking-[0.3em] ${mutedTextTone}`}>{copy.footer.legal}</p>
-              <div className={`space-y-3 text-[13px] leading-relaxed ${subtleTextTone}`}>
-                <p>{copy.footer.disclaimer}</p>
-              </div>
-            </div>
-
-            <nav className="space-y-4">
-              <p className={`text-xs font-black uppercase tracking-[0.3em] ${mutedTextTone}`}>{copy.footerSections.account}</p>
-              <div className="flex flex-col gap-4">
-                <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className={`text-[13px] ${subtleTextTone}`}>{copy.footer.accountLabel}</span>
-                  <ThemeToggle
-                    theme={theme}
-                    toggle={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                    activateLightLabel={copy.ui.activateLightMode}
-                    activateDarkLabel={copy.ui.activateDarkMode}
-                    switchToLightTitle={copy.ui.switchToLightMode}
-                    switchToDarkTitle={copy.ui.switchToDarkMode}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={onSignIn}
-                    className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] ${theme === 'dark' ? 'bg-slate-900 text-slate-100 border border-slate-700' : 'bg-white text-slate-900 border border-slate-300'}`}
-                  >
-                    {copy.signIn}
-                  </button>
-                  <button
-                    onClick={onSignUp}
-                    className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] ${theme === 'dark' ? 'bg-sky-300 text-slate-950' : 'bg-slate-950 text-white'}`}
-                  >
-                    {copy.hero.primary}
-                  </button>
-                </div>
-              </div>
-            </nav>
-          </div>
-
-          <div className={`flex flex-col gap-3 text-[12px] ${mutedTextTone} md:flex-row md:items-center md:justify-between ${isRTL ? 'md:flex-row-reverse' : ''}`}>
-            <p>{legalUi.copyright} © 2026 {copy.brand}. {legalUi.reserved}</p>
-            <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <span className="opacity-70">{activePageLabel}</span>
-              <span className="opacity-40">•</span>
-              <span className="opacity-70">{copy.hero.eyebrow}</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <T1DFooter
+        lang={lang}
+        theme={theme}
+        isRTL={isRTL}
+        brand={copy.brand}
+        heroEyebrow={copy.hero.eyebrow}
+        signInLabel={copy.signIn}
+        type1SignUpLabel={typeCopy.home.type1.cta}
+        type2SignUpLabel={typeCopy.home.type2.cta}
+        activePageLabel={activePageLabel}
+        copyright={legalUi.copyright}
+        reserved={legalUi.reserved}
+        disclaimer={copy.footer.disclaimer}
+        accountLabel={copy.footer.accountLabel}
+        activateLightLabel={copy.ui.activateLightMode}
+        activateDarkLabel={copy.ui.activateDarkMode}
+        switchToLightTitle={copy.ui.switchToLightMode}
+        switchToDarkTitle={copy.ui.switchToDarkMode}
+        sectionProduct={copy.footerSections.product}
+        sectionExplore={knowledgePageLabels.explore}
+        sectionLegal={copy.footerSections.legal}
+        sectionDownload={siteChrome.downloadSectionLabel}
+        sectionAccount={copy.footerSections.account}
+        legalNote={legalUi.classicNote}
+        trustLegalLabel={copy.footer.legal}
+        productLinks={footerProductLinks}
+        knowledgeLinks={footerKnowledgeLinks}
+        legalLinks={footerLegalLinks}
+        downloadLinks={footerDownloadLinks}
+        onNavigate={(pageId) => setActivePage(pageId as Page)}
+        onSignIn={onSignIn}
+        onSignUp={onSignUp}
+        onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+      />
     </div>
   );
 };

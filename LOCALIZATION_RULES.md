@@ -1,6 +1,6 @@
 # T1D Localization Rules
 
-All user-facing text in `apps/t1d` must stay synchronized across every supported language:
+All user-facing text in the T1D standalone project must stay synchronized across every supported language:
 
 - `en`
 - `ru`

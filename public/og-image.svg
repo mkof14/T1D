@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Steady calm support for diabetes families">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffbf7"/>
+      <stop offset="45%" stop-color="#ffedd5"/>
+      <stop offset="100%" stop-color="#faf5ff"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fdba74"/>
+      <stop offset="35%" stop-color="#f9a8d4"/>
+      <stop offset="68%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#fcd34d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#sky)"/>
+  <rect width="1200" height="8" fill="url(#bar)"/>
+  <circle cx="120" cy="120" r="90" fill="#fdba74" opacity="0.35"/>
+  <circle cx="980" cy="160" r="110" fill="#c4b5fd" opacity="0.28"/>
+  <circle cx="760" cy="520" r="120" fill="#fcd34d" opacity="0.24"/>
+  <rect x="80" y="120" width="1040" height="390" rx="36" fill="#ffffff" opacity="0.92"/>
+  <rect x="80" y="120" width="1040" height="8" rx="4" fill="url(#bar)"/>
+  <text x="120" y="220" fill="#c2410c" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="600">Calm support for diabetes families</text>
+  <text x="120" y="310" fill="#431407" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">Steady</text>
+  <text x="120" y="390" fill="#7c2d12" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="500">Gentle alerts. A clear next step. Together.</text>
+  <text x="120" y="450" fill="#9a3412" font-family="Arial, Helvetica, sans-serif" font-size="28">For type 1 and type 2 — day and night</text>
+</svg>

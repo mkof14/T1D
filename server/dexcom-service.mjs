@@ -211,11 +211,6 @@ export const dexcomEnvConfig = () => {
   const rateLimitedPollIntervalSeconds = Number(process.env.DEXCOM_RATE_LIMIT_POLL_INTERVAL_SECONDS || 300);
   const useLiveMode = process.env.DEXCOM_USE_LIVE === 'true';
   const ready = Boolean(clientId && clientSecret && redirectUri);
-  const stateToken = randomBytes(8).toString('hex');
-
-  const authorizeUrl = ready
-    ? `${authorizeBase}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(DEXCOM_SCOPES)}&state=${stateToken}`
-    : '';
 
   const missingConfig = [
     !clientId ? 'DEXCOM_CLIENT_ID' : '',
@@ -240,7 +235,7 @@ export const dexcomEnvConfig = () => {
     degradedPollIntervalSeconds,
     rateLimitedPollIntervalSeconds,
     useLiveMode,
-    authorizeUrl,
+    authorizeUrl: '',
     missingConfig,
   };
 };
@@ -434,7 +429,7 @@ const shouldRefreshBeforePoll = (connection) =>
 
 const seedReadings = () => {
   const baseTime = Date.now() - 1000 * 60 * 10;
-  return Array.from({ length: 4 }).map((_, index) => {
+  return Array.from({ length: 12 }).map((_, index) => {
     const trend = nextTrend(index);
     return {
       id: randomBytes(6).toString('hex'),
@@ -683,11 +678,19 @@ export const dexcomPayloadForHousehold = (household) => {
     latestGlucose: dexcom.latestGlucose ?? null,
     latestTrend: dexcom.latestTrend || 'unknown',
     latestTimestamp: dexcom.latestTimestamp || '',
+    readings: Array.isArray(dexcom.readings)
+      ? dexcom.readings.slice(-12).map((reading) => ({
+          id: reading.id || '',
+          timestamp: reading.timestamp || '',
+          glucose: reading.glucose ?? null,
+          trend: reading.trend || 'unknown',
+        }))
+      : [],
     message: dexcom.message || 'Dexcom connection is not ready yet.',
   };
 };
 
-export const dexcomOAuthStart = (household, accountName = '') => {
+export const dexcomOAuthStart = (household, accountName = '', stateToken = '') => {
   const env = dexcomEnvConfig();
   if (!env.ready) {
     return {
@@ -705,6 +708,10 @@ export const dexcomOAuthStart = (household, accountName = '') => {
     };
   }
 
+  const authorizeUrl = stateToken
+    ? `${env.authorizeBase}?client_id=${encodeURIComponent(env.clientId)}&redirect_uri=${encodeURIComponent(env.redirectUri)}&response_type=code&scope=${encodeURIComponent(DEXCOM_SCOPES)}&state=${encodeURIComponent(stateToken)}`
+    : `${env.authorizeBase}?client_id=${encodeURIComponent(env.clientId)}&redirect_uri=${encodeURIComponent(env.redirectUri)}&response_type=code&scope=${encodeURIComponent(DEXCOM_SCOPES)}`;
+
   return {
     dexcom: {
       ...ensureDexcomConnection(household),
@@ -714,7 +721,7 @@ export const dexcomOAuthStart = (household, accountName = '') => {
       accountName: accountName || household.primaryParent || 'Dexcom Member',
       missingConfig: env.missingConfig,
       oauthRedirectPath: '/api/dexcom/oauth/callback',
-      authorizePath: env.authorizeUrl,
+      authorizePath: authorizeUrl,
       tokenStatus: 'missing',
       requestHealth: 'healthy',
       retryCount: 0,
@@ -727,7 +734,7 @@ export const dexcomOAuthStart = (household, accountName = '') => {
       nextPollDueAt: '',
       message: 'Dexcom OAuth is configured. Finish the redirect flow to exchange the authorization code.',
     },
-    redirectUrl: env.authorizeUrl,
+    redirectUrl: authorizeUrl,
   };
 };
 

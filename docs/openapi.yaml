@@ -1,0 +1,298 @@
+openapi: 3.1.0
+info:
+  title: T1D API
+  version: 1.1.0
+  description: Standalone Type 1 Diabetes daily-support API for families.
+servers:
+  - url: /api
+    description: Same-origin API proxy
+paths:
+  /health:
+    get:
+      summary: Service health
+      parameters:
+        - in: query
+          name: verbose
+          schema:
+            type: string
+            enum: ['1']
+      responses:
+        '200':
+          description: Health payload
+  /session:
+    get:
+      summary: Current session state
+      responses:
+        '200':
+          description: Authenticated or anonymous session payload
+  /workspace:
+    get:
+      summary: Workspace payload for signed-in user
+      parameters:
+        - $ref: '#/components/parameters/LangHeader'
+      responses:
+        '200':
+          description: Localized workspace payload
+        '401':
+          description: Unauthorized
+  /access/signup:
+    post:
+      summary: Create account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessCredentials'
+      responses:
+        '201':
+          description: Account created
+        '409':
+          description: Email already exists
+        '429':
+          description: Rate limited
+  /access/signin:
+    post:
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessCredentials'
+      responses:
+        '200':
+          description: Signed in
+        '401':
+          description: Invalid credentials
+        '429':
+          description: Rate limited
+  /access/signout:
+    post:
+      summary: Sign out
+      responses:
+        '200':
+          description: Session cleared
+  /access/password-reset/request:
+    post:
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset prepared if account exists
+  /access/password-reset/confirm:
+    post:
+      summary: Confirm password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Password updated
+        '400':
+          description: Invalid or expired token
+  /household/setup:
+    post:
+      summary: Create or update household profile
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HouseholdSetup'
+      responses:
+        '200':
+          description: Household saved
+        '401':
+          description: Unauthorized
+  /household/join:
+    post:
+      summary: Join household by invite code
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Joined household
+        '404':
+          description: Invite not found
+  /preferences:
+    post:
+      summary: Save safety preferences
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Updated workspace payload
+  /action:
+    post:
+      summary: Perform safety action
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+      responses:
+        '200':
+          description: Updated workspace payload
+  /dexcom/connect:
+    post:
+      summary: Connect Dexcom mock or prepare OAuth
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Updated workspace payload
+  /dexcom/disconnect:
+    post:
+      summary: Disconnect Dexcom
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Updated workspace payload
+  /dexcom/poll:
+    post:
+      summary: Poll Dexcom readings
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Updated workspace payload
+  /dexcom/oauth/start:
+    post:
+      summary: Start Dexcom OAuth
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OAuth redirect URL and workspace snapshot
+  /dexcom/refresh-token:
+    post:
+      summary: Refresh Dexcom token
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Updated workspace payload
+  /dexcom/oauth/callback:
+    get:
+      summary: Dexcom OAuth browser callback
+      responses:
+        '302':
+          description: Redirect back to workspace
+  /cron/dexcom-sync:
+    get:
+      summary: Background Dexcom sync cron
+      security:
+        - cronBearer: []
+      responses:
+        '200':
+          description: Sync result
+        '401':
+          description: Unauthorized cron request
+  /feedback:
+    post:
+      summary: Submit beta feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                email:
+                  type: string
+      responses:
+        '201':
+          description: Feedback stored
+        '400':
+          description: Validation error
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: t1d_sid
+    cronBearer:
+      type: http
+      scheme: bearer
+  parameters:
+    LangHeader:
+      in: header
+      name: X-T1D-Lang
+      schema:
+        type: string
+        enum: [en, ru, uk, es, fr, de, zh, ja, pt, he, ar]
+  schemas:
+    AccessCredentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [parent, adult, caregiver]
+        organization:
+          type: string
+    HouseholdSetup:
+      type: object
+      required: [householdName, childName, primaryParent, nightWindow]
+      properties:
+        householdName:
+          type: string
+        childName:
+          type: string
+        childAgeBand:
+          type: string
+        primaryParent:
+          type: string
+        caregiverName:
+          type: string
+        nightWindow:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string

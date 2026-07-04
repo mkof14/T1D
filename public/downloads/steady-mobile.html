@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Steady" />
+  <link rel="manifest" href="http://localhost:3002/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="http://localhost:3002/icons/icon-192.png" />
+  <title>Steady Mobile</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f8fcff; color: #0f172a; }
+    main { max-width: 28rem; margin: 0 auto; padding: 2rem 1.25rem; }
+    h1 { font-size: 1.75rem; margin: 0 0 0.75rem; }
+    p, li { line-height: 1.55; }
+    a.button { display: inline-block; margin-top: 1rem; padding: 0.85rem 1.1rem; border-radius: 9999px; background: #0ea5e9; color: white; text-decoration: none; font-weight: 700; }
+    ol { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Steady on mobile</h1>
+    <p>Save Steady to your home screen for quick access.</p>
+    <ol>
+      <li>Open Steady in Safari (iPhone/iPad) or Chrome (Android).</li>
+      <li>iPhone/iPad: Share → Add to Home Screen.</li>
+      <li>Android: menu → Install app or Add to Home screen.</li>
+    </ol>
+    <a class="button" href="http://localhost:3002/download/mobile?install=mobile">Open Steady</a>
+  </main>
+  <script>setTimeout(function(){ window.location.replace("http://localhost:3002/download/mobile?install=mobile"); }, 1200);</script>
+</body>
+</html>

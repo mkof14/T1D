@@ -1,11 +1,13 @@
-import { AlertTriangle, BellRing, HeartHandshake, MoonStar, ShieldAlert, TimerReset, Workflow } from 'lucide-react';
+import { AlertTriangle, BellRing, Heart, HeartHandshake, MoonStar, TimerReset, Users } from 'lucide-react';
 import type { Language } from '../types';
+import { PRODUCT_NAME } from './brand';
 
 import type { LegalPage } from './legal-copy';
 import type { KnowledgePage } from './knowledge-copy';
 
 export type CorePage = 'home' | 'system' | 'night' | 'family' | 'trust';
-export type Page = CorePage | Exclude<LegalPage, 'trust'> | KnowledgePage;
+export type DownloadPage = 'downloadDesktop' | 'downloadMobile';
+export type Page = CorePage | Exclude<LegalPage, 'trust'> | KnowledgePage | DownloadPage;
 
 type Copy = {
   brand: string;
@@ -73,7 +75,6 @@ type Copy = {
     accountLabel: string;
   };
   ui: {
-    biomathCore: string;
     mvpIn: string;
     mvpOut: string;
     selectLanguage: string;
@@ -93,8 +94,8 @@ export const HOME_TERMS: Record<Language, {
   step2: string;
   step3: string;
 }> = {
-  en: { childRole: 'Child', parentRole: 'Parent', supportRole: 'Support Adult', step1: '1. Notice', step2: '2. Check Again', step3: '3. Call For Backup' },
-  ru: { childRole: 'Ребёнок', parentRole: 'Родитель', supportRole: 'Помогающий Взрослый', step1: '1. Сигнал', step2: '2. Повторная Проверка', step3: '3. Вызов Поддержки' },
+  en: { childRole: 'Child', parentRole: 'Parent', supportRole: 'Support adult', step1: '1. A gentle nudge', step2: '2. A quiet check-in', step3: '3. Someone you trust joins in' },
+  ru: { childRole: 'Ребёнок', parentRole: 'Родитель', supportRole: 'Близкий взрослый', step1: '1. Мягкое напоминание', step2: '2. Спокойная проверка', step3: '3. Подключается близкий человек' },
   uk: { childRole: 'Дитина', parentRole: 'Батьки', supportRole: 'Дорослий Для Підтримки', step1: '1. Сигнал', step2: '2. Повторна Перевірка', step3: '3. Виклик Підтримки' },
   es: { childRole: 'Niño', parentRole: 'Padre O Madre', supportRole: 'Adulto De Apoyo', step1: '1. Aviso', step2: '2. Revisar De Nuevo', step3: '3. Pedir Apoyo' },
   fr: { childRole: 'Enfant', parentRole: 'Parent', supportRole: 'Adulte De Soutien', step1: '1. Alerte', step2: '2. Reverification', step3: '3. Appeler Du Renfort' },
@@ -104,6 +105,20 @@ export const HOME_TERMS: Record<Language, {
   pt: { childRole: 'Crianca', parentRole: 'Responsavel', supportRole: 'Adulto De Apoio', step1: '1. Aviso', step2: '2. Conferir De Novo', step3: '3. Chamar Apoio' },
   he: { childRole: 'ילד או ילדה', parentRole: 'הורה', supportRole: 'מבוגר תומך', step1: '1. איתור', step2: '2. בדיקה נוספת', step3: '3. קריאה לתמיכה' },
   ar: { childRole: 'الطفل', parentRole: 'ولي الامر', supportRole: 'شخص بالغ داعم', step1: '1. ملاحظة الخطر', step2: '2. تحقق مرة اخرى', step3: '3. طلب دعم' },
+};
+
+export const BRAND_TAGLINE: Record<Language, string> = {
+  en: 'Calm support for diabetes families',
+  ru: 'Спокойная поддержка для семей с диабетом',
+  uk: 'Спокійна підтримка для сімей із діабетом',
+  es: 'Apoyo tranquilo para familias con diabetes',
+  fr: 'Soutien apaisant pour les familles touchées par le diabète',
+  de: 'Ruhige Unterstützung für Diabetes-Familien',
+  zh: '为糖尿病家庭提供安心支持',
+  ja: '糖尿病の家族に、落ち着いた支えを',
+  pt: 'Apoio calmo para famílias com diabetes',
+  he: 'תמיכה רגועה למשפחות עם סוכרת',
+  ar: 'دعم هادئ لعائلات السكري',
 };
 
 export const PUBLIC_UI_COPY: Record<Language, {
@@ -116,22 +131,22 @@ export const PUBLIC_UI_COPY: Record<Language, {
   whatYouGet: string;
 }> = {
   en: {
-    howItWorks: 'How It Works',
-    nightSupport: 'Night Support',
-    familySupport: 'For Families',
-    limits: 'Limits',
-    shortSummary: 'Short Daily Note',
-    coreIdea: 'Core Idea',
-    whatYouGet: 'What You Get',
+    howItWorks: 'How it helps',
+    nightSupport: 'At night',
+    familySupport: 'For families',
+    limits: 'Good to know',
+    shortSummary: 'A calm morning recap',
+    coreIdea: 'Our approach',
+    whatYouGet: 'What families get',
   },
   ru: {
-    howItWorks: 'Как Это Работает',
-    nightSupport: 'Ночная Поддержка',
-    familySupport: 'Для Семьи',
-    limits: 'Границы',
-    shortSummary: 'Короткий Итог',
-    coreIdea: 'Главная Идея',
-    whatYouGet: 'Что Это Даёт',
+    howItWorks: 'Как помогает',
+    nightSupport: 'Ночью',
+    familySupport: 'Для семьи',
+    limits: 'Важно знать',
+    shortSummary: 'Спокойный утренний итог',
+    coreIdea: 'Наш подход',
+    whatYouGet: 'Что получает семья',
   },
   uk: {
     howItWorks: 'Як Це Працює',
@@ -225,113 +240,113 @@ export const PUBLIC_MICROCOPY: Record<Language, {
   limitsIntro: string;
 }> = {
   en: {
-    homeSubtitle: 'T1D helps families notice change sooner, understand what matters now, and stay steady through the next step.',
-    homeNote: 'Made to stay simple: clear signal, clear next step, clear recovery.',
-    systemIntro: 'The system takes in data, checks what changed, and turns it into one clear next step.',
-    nightIntro: 'At night, support gets closer and faster without turning everything into noise.',
-    familyIntro: 'Everyone sees the same picture, and it stays clear who is responding now.',
-    limitsIntro: 'The system helps people act, but it does not replace medical care or live judgment.',
+    homeSubtitle: 'Understand what changed, who can help, and what to do next — without stress.',
+    homeNote: 'Made for children, parents, and adults who support each other.',
+    systemIntro: 'Steady reads your device data and turns it into a simple, human picture of what matters now.',
+    nightIntro: 'At night, Steady stays closer — with calm alerts, not alarm overload.',
+    familyIntro: 'Everyone in the family sees the same gentle picture and knows who is responding.',
+    limitsIntro: 'Steady supports your daily life. It does not replace your doctor or your devices.',
   },
   ru: {
-    homeSubtitle: 'T1D помогает семье раньше замечать изменения, быстро понимать главное и спокойнее проходить следующий шаг.',
-    homeNote: 'Всё устроено просто: понятный сигнал, понятный следующий шаг, понятное восстановление.',
-    systemIntro: 'Система получает данные, замечает изменения и превращает их в один понятный следующий шаг.',
-    nightIntro: 'Ночью поддержка становится внимательнее и быстрее, но не превращает всё в шум.',
-    familyIntro: 'Все видят одну и ту же картину, и всегда понятно, кто отвечает сейчас.',
-    limitsIntro: 'Система помогает действовать, но не заменяет медицинскую помощь и живое решение человека.',
+    homeSubtitle: 'Понять, что изменилось, кто рядом и что делать дальше — без лишнего напряжения.',
+    homeNote: 'Для детей, родителей и взрослых, которые поддерживают друг друга.',
+    systemIntro: 'Steady читает данные с устройства и показывает простую, человеческую картину того, что важно сейчас.',
+    nightIntro: 'Ночью Steady остаётся ближе — с мягкими напоминаниями, а не лавиной тревог.',
+    familyIntro: 'Вся семья видит одну спокойную картину и понимает, кто сейчас отвечает.',
+    limitsIntro: 'Steady поддерживает повседневную жизнь. Он не заменяет врача и ваши устройства.',
   },
   uk: {
-    homeSubtitle: 'T1D допомагає сімʼї раніше помічати зміни, швидко розуміти головне і спокійніше проходити наступний крок.',
-    homeNote: 'Усе зроблено просто: зрозумілий сигнал, зрозумілий наступний крок, зрозуміле відновлення.',
-    systemIntro: 'Система бере дані, помічає зміни й перетворює їх на один зрозумілий наступний крок.',
-    nightIntro: 'Уночі підтримка стає уважнішою й швидшою, але не перетворює все на шум.',
-    familyIntro: 'Усі бачать ту саму картину, і завжди зрозуміло, хто відповідає зараз.',
-    limitsIntro: 'Система допомагає діяти, але не замінює медичну допомогу та живе рішення людини.',
+    homeSubtitle: 'Зрозуміти, що змінилося, хто поруч і що робити далі — без зайвого стресу.',
+    homeNote: 'Для дітей, батьків і дорослих, які підтримують одне одного.',
+    systemIntro: 'Steady читає дані з пристрою і показує просту, людську картину того, що важливо зараз.',
+    nightIntro: 'Вночі Steady лишається ближче — із спокійними нагадуваннями, а не потоком тривог.',
+    familyIntro: 'Уся родина бачить одну м’яку картину і розуміє, хто відповідає зараз.',
+    limitsIntro: 'Steady підтримує повсякденне життя. Він не замінює лікаря та ваші пристрої.',
   },
   es: {
-    homeSubtitle: 'T1D ayuda a la familia a notar cambios antes, entender qué importa ahora y pasar el siguiente paso con más calma.',
-    homeNote: 'Hecho para seguir simple: señal clara, siguiente paso claro y recuperación clara.',
-    systemIntro: 'El sistema toma los datos, detecta el cambio y lo convierte en un siguiente paso claro.',
-    nightIntro: 'Por la noche el apoyo se vuelve más cercano y rápido, sin convertir todo en ruido.',
-    familyIntro: 'Todos ven la misma situación y siempre queda claro quién responde ahora.',
-    limitsIntro: 'El sistema ayuda a actuar, pero no sustituye la atención médica ni el juicio humano.',
+    homeSubtitle: 'Entender qué cambió, quién puede ayudar y qué hacer después — sin estrés.',
+    homeNote: 'Hecho para niños, padres y adultos que se apoyan mutuamente.',
+    systemIntro: 'Steady lee los datos del dispositivo y los convierte en una imagen simple y humana de lo que importa ahora.',
+    nightIntro: 'De noche, Steady se mantiene cerca — con avisos calmados, no con alarmas agotadoras.',
+    familyIntro: 'Toda la familia ve la misma imagen amable y sabe quién responde ahora.',
+    limitsIntro: 'Steady apoya la vida diaria. No sustituye a tu médico ni a tus dispositivos.',
   },
   fr: {
-    homeSubtitle: 'T1D aide la famille a voir le changement plus tot, comprendre l essentiel et traverser la suite avec plus de calme.',
-    homeNote: 'Concu pour rester simple: signal clair, suite claire, recuperation claire.',
-    systemIntro: 'Le systeme prend les donnees, repere le changement et le transforme en une suite claire.',
-    nightIntro: 'La nuit, le soutien devient plus proche et plus rapide sans transformer tout en bruit.',
-    familyIntro: 'Tout le monde voit la meme situation et il reste clair qui repond maintenant.',
-    limitsIntro: 'Le systeme aide a agir, mais il ne remplace ni le soin medical ni le jugement humain.',
+    homeSubtitle: 'Comprendre ce qui a changé, qui peut aider et quoi faire ensuite — sans stress.',
+    homeNote: 'Pensé pour les enfants, les parents et les adultes qui se soutiennent.',
+    systemIntro: 'Steady lit les données de l appareil et en fait une image simple et humaine de l essentiel maintenant.',
+    nightIntro: 'La nuit, Steady reste proche — avec des rappels calmes, pas une avalanche d alertes.',
+    familyIntro: 'Toute la famille voit la même image douce et sait qui répond maintenant.',
+    limitsIntro: 'Steady soutient le quotidien. Il ne remplace ni votre médecin ni vos appareils.',
   },
   de: {
-    homeSubtitle: 'T1D hilft Familien, Veranderungen fruher zu sehen, das Wichtige jetzt zu verstehen und ruhiger durch den nachsten Schritt zu gehen.',
-    homeNote: 'Bewusst einfach: klares Signal, klarer nachster Schritt, klare Erholung.',
-    systemIntro: 'Das System nimmt Daten auf, erkennt Veranderung und macht daraus einen klaren nachsten Schritt.',
-    nightIntro: 'Nachts wird die Unterstutzung naher und schneller, ohne alles in Larm zu verwandeln.',
-    familyIntro: 'Alle sehen dasselbe Bild und es bleibt klar, wer gerade reagiert.',
-    limitsIntro: 'Das System hilft beim Handeln, ersetzt aber weder medizinische Versorgung noch menschliches Urteil.',
+    homeSubtitle: 'Verstehen, was sich geändert hat, wer helfen kann und was als Nächstes zu tun ist — ohne Stress.',
+    homeNote: 'Für Kinder, Eltern und Erwachsene, die einander stützen.',
+    systemIntro: 'Steady liest Gerätedaten und macht daraus ein einfaches, menschliches Bild dessen, was jetzt zählt.',
+    nightIntro: 'Nachts bleibt Steady näher dran — mit ruhigen Hinweisen statt Alarmflut.',
+    familyIntro: 'Die ganze Familie sieht dasselbe sanfte Bild und weiß, wer gerade reagiert.',
+    limitsIntro: 'Steady unterstützt den Alltag. Es ersetzt weder Arzt noch Geräte.',
   },
   zh: {
-    homeSubtitle: 'T1D 帮助家庭更早发现变化，更快看懂重点，也更平稳地走到下一步。',
-    homeNote: '它刻意保持简单：信号清楚，下一步清楚，恢复也清楚。',
-    systemIntro: '系统接收数据，发现变化，然后把它变成一个清楚的下一步。',
-    nightIntro: '夜间支持会更近、更快，但不会把整晚都变成噪音。',
-    familyIntro: '每个人看到的是同一幅画面，也始终清楚谁正在响应。',
-    limitsIntro: '系统帮助人采取行动，但不替代医疗照护，也不替代人的判断。',
+    homeSubtitle: '了解发生了什么变化、谁能帮忙、下一步做什么——不必紧张。',
+    homeNote: '为彼此支持的孩子、家长和成年人而设计。',
+    systemIntro: 'Steady 读取设备数据，把它变成现在最重要事情的简单、易懂画面。',
+    nightIntro: '夜间 Steady 离你更近——提醒温和，不会让人喘不过气。',
+    familyIntro: '全家人看到同一幅温和画面，也清楚现在谁在回应。',
+    limitsIntro: 'Steady 支持日常生活，但不能替代医生或设备。',
   },
   ja: {
-    homeSubtitle: 'T1D は家族が変化に早く気づき、今大事なことを理解し、次の一歩を落ち着いて進めるのを助けます。',
-    homeNote: 'わかりやすさを大切にしています。合図も、次の一歩も、回復もシンプルです。',
-    systemIntro: 'この仕組みはデータを受け取り、変化を見つけて、次の一歩をわかりやすく示します。',
-    nightIntro: '夜は支え方がより近く、より早くなりますが、画面を騒がしくはしません。',
-    familyIntro: 'みんなが同じ状況を見て、今だれが動いているかもはっきりします。',
-    limitsIntro: 'この仕組みは行動を助けますが、医療や人の判断の代わりにはなりません。',
+    homeSubtitle: '何が変わったか、誰が助けられるか、次に何をするか——落ち着いて分かります。',
+    homeNote: '子ども、保護者、支え合う大人のためにつくりました。',
+    systemIntro: 'Steady は機器データを読み取り、今大切なことをシンプルでやさしい画面にします。',
+    nightIntro: '夜も Steady はそばに——穏やかなお知らせで、警報の洪水にはしません。',
+    familyIntro: '家族全員が同じやさしい画面を見て、今だれが動いているか分かります。',
+    limitsIntro: 'Steady は日常を支えます。医師や機器の代わりにはなりません。',
   },
   pt: {
-    homeSubtitle: 'T1D ajuda a familia a notar mudancas mais cedo, entender o que importa agora e passar pelo proximo passo com mais calma.',
-    homeNote: 'Feito para ficar simples: sinal claro, proximo passo claro e recuperacao clara.',
-    systemIntro: 'O sistema recebe os dados, percebe a mudanca e transforma isso em um proximo passo claro.',
-    nightIntro: 'A noite, o apoio fica mais proximo e mais rapido, sem transformar tudo em ruido.',
-    familyIntro: 'Todos veem a mesma situacao e fica claro quem esta respondendo agora.',
-    limitsIntro: 'O sistema ajuda a agir, mas nao substitui cuidado medico nem julgamento humano.',
+    homeSubtitle: 'Entender o que mudou, quem pode ajudar e o que fazer a seguir — sem estresse.',
+    homeNote: 'Feito para crianças, pais e adultos que se apoiam.',
+    systemIntro: 'Steady lê os dados do dispositivo e transforma isso numa imagem simples e humana do que importa agora.',
+    nightIntro: 'À noite, Steady fica mais perto — com avisos calmos, não uma enxurrada de alarmes.',
+    familyIntro: 'Toda a família vê a mesma imagem gentil e sabe quem está respondendo agora.',
+    limitsIntro: 'Steady apoia a vida diária. Não substitui o médico nem os dispositivos.',
   },
   he: {
-    homeSubtitle: 'T1D עוזר למשפחה לזהות שינוי מוקדם יותר, להבין מהר מה חשוב עכשיו ולעבור את הצעד הבא בצורה רגועה יותר.',
-    homeNote: 'המערכת נשארת פשוטה: סימן ברור, צעד הבא ברור והתאוששות ברורה.',
-    systemIntro: 'המערכת מקבלת נתונים, מזהה שינוי והופכת אותו לצעד הבא בצורה ברורה.',
-    nightIntro: 'בלילה התמיכה נעשית קרובה ומהירה יותר, בלי להפוך את הכול לרעש.',
-    familyIntro: 'כולם רואים את אותה תמונה, ותמיד ברור מי מגיב עכשיו.',
-    limitsIntro: 'המערכת עוזרת לפעול, אבל לא מחליפה טיפול רפואי או שיקול דעת אנושי.',
+    homeSubtitle: 'להבין מה השתנה, מי יכול לעזור ומה לעשות הלאה — בלי לחץ.',
+    homeNote: 'נבנה לילדים, להורים ולמבוגרים שתומכים זה בזה.',
+    systemIntro: 'Steady קורא נתונים מהמכשיר והופך אותם לתמונה פשוטה ואנושית של מה שחשוב עכשיו.',
+    nightIntro: 'בלילה Steady נשאר קרוב — עם תזכורות רגועות, לא הצפה של אזעקות.',
+    familyIntro: 'כל המשפחה רואה את אותה תמונה עדינה ויודעת מי מגיב עכשיו.',
+    limitsIntro: 'Steady תומך בחיים היומיומיים. הוא לא מחליף רופא או מכשירים.',
   },
   ar: {
-    homeSubtitle: 'يساعد T1D العائلة على ملاحظة التغير مبكرًا وفهم ما يهم الآن وعبور الخطوة التالية بهدوء أكبر.',
-    homeNote: 'النظام يبقى بسيطًا: إشارة واضحة، خطوة تالية واضحة، وتعافٍ واضح.',
-    systemIntro: 'يأخذ النظام البيانات ويلاحظ التغير ثم يحول ذلك إلى خطوة تالية واضحة.',
-    nightIntro: 'في الليل يصبح الدعم أقرب وأسرع من دون أن يحول كل شيء إلى ضجيج.',
-    familyIntro: 'يرى الجميع الصورة نفسها، ويظل واضحًا من الذي يستجيب الآن.',
-    limitsIntro: 'يساعد النظام الناس على التحرك، لكنه لا يبدل الرعاية الطبية ولا الحكم البشري.',
+    homeSubtitle: 'افهم ما تغيّر، من يمكنه المساعدة، وماذا تفعل بعد ذلك — بدون توتر.',
+    homeNote: 'صُمم للأطفال والآباء والبالغين الذين يدعمون بعضهم.',
+    systemIntro: 'Steady يقرأ بيانات الجهاز ويحوّلها إلى صورة بسيطة وإنسانية لما يهم الآن.',
+    nightIntro: 'ليلًا يبقى Steady أقرب — بتنبيهات هادئة، لا بسيل من الإنذارات.',
+    familyIntro: 'ترى العائلة كلها الصورة نفسها اللطيفة وتعرف من يستجيب الآن.',
+    limitsIntro: 'Steady يدعم الحياة اليومية. لا يحل محل الطبيب أو الأجهزة.',
   },
 };
 
 // All new copy in this project must be added for every supported language.
 export const COPY: Record<Language, Copy> = {
   en: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Home',
-      system: 'System',
-      night: 'Night Mode',
+      system: 'How it helps',
+      night: 'At night',
       family: 'Family',
-      trust: 'Trust',
+      trust: 'Good to know',
     },
-    signIn: 'Open Access',
+    signIn: 'Sign in',
     titleByPage: {
-      home: 'T1D Support System',
-      system: 'System Architecture',
-      night: 'Night Mode',
-      family: 'Family Model',
-      trust: 'Trust And Limits',
+      home: 'Steady',
+      system: 'How it helps',
+      night: 'At night',
+      family: 'Family',
+      trust: 'Good to know',
     },
     footerSections: {
       product: 'Product',
@@ -339,89 +354,87 @@ export const COPY: Record<Language, Copy> = {
       account: 'Account',
     },
     hero: {
-      eyebrow: 'Daily safety support for families living with T1D',
-      title: 'See what matters sooner. Know what to do next. Stay supported day and night.',
-      subtitle:
-        'T1D helps parents, adults living with T1D, and support adults stay clear on what is happening, when something needs attention, and when recovery is being monitored.',
-      primary: 'Create Account',
-      secondary: 'Open System',
-      note: 'Built to stay simple: clear signal, clear action, clear recovery.',
+      eyebrow: 'Separate paths for type 1 and type 2 diabetes',
+      title: 'Calm support, together — day and night.',
+      subtitle: 'Steady helps children, parents, and adults understand what is happening and feel less alone when glucose changes.',
+      primary: 'Get started',
+      secondary: 'See how it helps',
+      note: 'Gentle alerts. A clear next step. No clutter.',
     },
     principle: {
-      title: 'Core Principle',
-      body: 'Keep the night clear, calm, and actionable.',
+      title: 'Our approach',
+      body: 'Keep nights calm and days understandable.',
     },
     product: {
-      title: 'What You Get',
-      body:
-        'One place to understand the current situation, respond when needed, and stay on top of recovery without overload.',
+      title: 'What families get',
+      body: 'A gentle picture of now, a clear next step, and room to breathe.',
       points: [
-        'A clearer night view with less guesswork.',
-        'Shared visibility for child, parent, and the adults helping.',
-        'Simple next steps during a risky moment.',
-        'A short summary the next morning.',
+        'A calmer view at night.',
+        'One shared picture for child, parent, and support adult.',
+        'One clear next step when things feel risky.',
+        'A short, kind morning recap.',
       ],
     },
     architecture: {
-      title: 'Architecture',
+      title: 'How Steady works behind the scenes',
       items: [
-        { title: 'Data Layer', body: 'CGM sources such as Dexcom, with mobile signals reserved for future expansion.' },
-        { title: 'Normalization Layer', body: 'Unified format, time synchronization, and confidence evaluation.' },
-        { title: 'State Engine', body: 'Core states: NORMAL, FALLING, RISK, CRITICAL, RECOVERY.' },
-        { title: 'Risk Engine', body: 'Trend analysis, rate of change, and a 15-30 minute short forecast.' },
-        { title: 'Signal Logic', body: 'Decides when to notify, how strongly to notify, and what should happen next.' },
-        { title: 'Notifications', body: 'Push, repeat, extra backup, and clear confirmation when someone responds.' },
+        { title: 'From your devices', body: 'CGM sources such as Dexcom, with room for more devices over time.' },
+        { title: 'Making sense of the numbers', body: 'Timing, freshness, and confidence — without flooding you with raw data.' },
+        { title: 'What is happening now', body: 'A simple current picture instead of a wall of numbers.' },
+        { title: 'Looking a little ahead', body: 'Trend and short forecast so you can respond before things feel urgent.' },
+        { title: 'When to reach out', body: 'Steady decides when a nudge is enough and when more help should join in.' },
+        { title: 'How your family gets notified', body: 'Push, repeat, backup support, and a clear sign when someone has responded.' },
       ],
     },
     states: {
-      title: 'State Logic',
+      title: 'What you might see',
       items: [
-        { name: 'NORMAL', body: 'Stable state with minimal display.' },
-        { name: 'FALLING', body: 'A drop is detected. Attention without panic.' },
-        { name: 'RISK', body: 'Dangerous threshold may be reached soon. Recommendation is shown.' },
-        { name: 'CRITICAL', body: 'High risk or already dangerous state. Immediate action is required.' },
-        { name: 'RECOVERY', body: 'Observation after intervention until stabilization is confirmed.' },
+        { name: 'Steady', body: 'Things look stable. The screen stays quiet.' },
+        { name: 'Glucose falling', body: 'A drop is showing up. Attention, not panic.' },
+        { name: 'Needs attention soon', body: 'A risky level may be close. Steady suggests a next step.' },
+        { name: 'Urgent help needed', body: 'The situation needs action now.' },
+        { name: 'Getting better', body: 'Steady stays with recovery until things feel stable again.' },
       ],
     },
     night: {
-      title: 'Night Mode',
-      intro: 'Night mode is the heart of the product. It should catch danger early without turning the whole night into noise.',
+      title: 'At night',
+      intro: 'Stay close when it matters — without waking the whole house.',
       points: [
-        'More sensitive thresholds.',
-        'Accelerated escalation.',
-        'Mandatory critical alerts.',
-        'Future voice mode for sleep-time interventions.',
+        'More sensitive overnight.',
+        'Backup joins in sooner when needed.',
+        'Critical alerts when safety truly needs it.',
+        'Voice support planned for later.',
       ],
-      escalationTitle: 'Signal Steps',
-      escalation: ['1. Signal', '2. Repeat', '3. Stronger Signal', '4. Bring In Backup'],
+      escalationTitle: 'How support builds',
+      escalation: ['1. Gentle nudge', '2. Quiet check-in', '3. Stronger reminder', '4. Bring in someone you trust'],
     },
     family: {
-      title: 'Family Model',
-      intro: 'The product is built for one shared support flow across the whole day.',
+      title: 'Family',
+      intro: 'One caring flow for the whole day.',
       points: [
-        'Child, parent, and support adult stay in the same picture.',
-        'Responsibility stays visible and clear.',
-        'The screen shows who is responding right now.',
-        'The morning summary stays short and easy to read.',
+        'Child, parent, and support adult see the same picture.',
+        'It stays clear who is responding.',
+        'The responder is visible on screen.',
+        'A short morning recap everyone can read.',
       ],
     },
     trust: {
-      title: 'Trust And Limits',
-      intro: 'The system supports action, but it is not a medical device and does not replace a physician.',
-      legalTitle: 'Trust Boundaries',
+      title: 'Good to know',
+      intro: 'Steady supports daily life. It is not a medical device and not a doctor.',
+      legalTitle: 'Important boundaries',
       legal: [
         'Not a medical instrument.',
         'Does not diagnose or treat.',
         'Does not guarantee prevention of events.',
-        'Depends on device quality, incoming data, and user response.',
+        'Depends on device quality, incoming data, and human response.',
       ],
-      mvpTitle: 'Current Focus',
-      mvpIn: ['CGM', 'Night support', 'Critical signal', 'Extra backup', 'Recovery', 'Family support'],
-      mvpOut: ['Type 2 mode', 'Physical device', 'AI layer', 'Analytics dashboards', 'Complex settings'],
+      mvpTitle: 'What is included today',
+      mvpIn: ['Type 1 & 2', 'CGM', 'Night support', 'Critical alerts', 'Backup', 'Recovery', 'Family'],
+      mvpOut: ['Advanced analytics', 'Physical device', 'AI layer', 'Analytics dashboards', 'Complex settings'],
     },
     summary: {
-      title: 'Simple Morning Summary',
-      body: '1 signal. Parent responded. Child recovered.',
+      title: 'A calm morning recap',
+      body: 'One alert. A parent responded. Your child is doing better.',
     },
     footer: {
       disclaimer:
@@ -430,7 +443,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Theme',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'In Current Focus',
       mvpOut: 'Outside Current Focus',
       selectLanguage: 'Select Language',
@@ -442,21 +454,21 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   ru: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Главная',
-      system: 'Система',
-      night: 'Ночной режим',
+      system: 'Как помогает',
+      night: 'Ночью',
       family: 'Семья',
-      trust: 'Trust',
+      trust: 'Важно знать',
     },
-    signIn: 'Открыть доступ',
+    signIn: 'Войти',
     titleByPage: {
-      home: 'Система Поддержки T1D',
-      system: 'Архитектура Системы',
-      night: 'Ночной Режим',
-      family: 'Семейная Модель',
-      trust: 'Доверие И Границы',
+      home: 'Steady',
+      system: 'Как помогает',
+      night: 'Ночью',
+      family: 'Семья',
+      trust: 'Важно знать',
     },
     footerSections: {
       product: 'Продукт',
@@ -464,76 +476,74 @@ export const COPY: Record<Language, Copy> = {
       account: 'Аккаунт',
     },
     hero: {
-      eyebrow: 'Ежедневная поддержка безопасности для семей, живущих с T1D',
-      title: 'Раньше увидеть важное. Быстро понять, что делать дальше. Оставаться в поддержке днём и ночью.',
-      subtitle:
-        'T1D помогает родителям, взрослым с T1D и помогающим взрослым быстро понимать, что происходит, когда нужно внимание и когда система просто следит за восстановлением.',
-      primary: 'Создать аккаунт',
-      secondary: 'Открыть систему',
-      note: 'Всё построено просто: понятный сигнал, понятное действие и понятное восстановление.',
+      eyebrow: 'Отдельные пути для диабета 1 и 2 типа',
+      title: 'Спокойная поддержка вместе — днём и ночью.',
+      subtitle: 'Steady помогает детям, родителям и взрослым понимать, что происходит, и чувствовать себя спокойнее, когда меняется сахар.',
+      primary: 'Начать',
+      secondary: 'Как это помогает',
+      note: 'Мягкие напоминания. Понятный следующий шаг. Без лишнего.',
     },
     principle: {
-      title: 'Ключевой Принцип',
-      body: 'Ночь должна быть понятной, спокойной и управляемой.',
+      title: 'Наш подход',
+      body: 'Спокойная ночь и понятный день.',
     },
     product: {
-      title: 'Что Даёт Продукт',
-      body:
-        'Одно место, где можно быстро понять текущую ситуацию, отреагировать, если это нужно, и не потерять момент восстановления.',
+      title: 'Что получает семья',
+      body: 'Мягкая картина сейчас, понятный следующий шаг и место, чтобы выдохнуть.',
       points: [
-        'Более ясную картину ночью без лишней суеты.',
-        'Общую картину для ребёнка и взрослых рядом.',
-        'Простые следующие шаги в рискованный момент.',
-        'Короткий итог утром.',
+        'Спокойнее ночью.',
+        'Одна общая картина для ребёнка, родителя и близкого взрослого.',
+        'Один понятный шаг, когда становится тревожно.',
+        'Короткий добрый утренний итог.',
       ],
     },
     architecture: {
-      title: 'Архитектура',
+      title: 'Как Steady работает внутри',
       items: [
-        { title: 'Data Layer', body: 'Источники CGM, такие как Dexcom, и в будущем мобильные сигналы.' },
-        { title: 'Normalization Layer', body: 'Единый формат, синхронизация по времени и оценка достоверности.' },
-        { title: 'State Engine', body: 'Состояния: NORMAL, FALLING, RISK, CRITICAL, RECOVERY.' },
-        { title: 'Risk Engine', body: 'Анализ тренда, скорости изменения и короткий прогноз на 15-30 минут.' },
-        { title: 'Логика Сигналов', body: 'Решает, когда уведомлять, насколько заметно и что делать дальше.' },
-        { title: 'Уведомления', body: 'Push, повтор, подключение резерва и понятное подтверждение, когда кто-то ответил.' },
+        { title: 'Из ваших устройств', body: 'Источники CGM, такие как Dexcom, с возможностью добавить другие устройства позже.' },
+        { title: 'Смысл в цифрах', body: 'Время, свежесть и доверие к данным — без потока сырых чисел.' },
+        { title: 'Что происходит сейчас', body: 'Простая текущая картина вместо стены показателей.' },
+        { title: 'Немного вперёд', body: 'Тренд и короткий прогноз, чтобы успеть отреагировать раньше.' },
+        { title: 'Когда стоит обратиться', body: 'Steady решает, когда хватит мягкого напоминания, а когда нужна помощь близких.' },
+        { title: 'Как семья получает уведомления', body: 'Push, повтор, резервная поддержка и понятный знак, что кто-то ответил.' },
       ],
     },
     states: {
-      title: 'Логика Состояний',
+      title: 'Что вы можете увидеть',
       items: [
-        { name: 'NORMAL', body: 'Стабильное состояние с минимальным отображением.' },
-        { name: 'FALLING', body: 'Обнаружено снижение. Внимание без паники.' },
-        { name: 'RISK', body: 'Опасный уровень может быть достигнут скоро. Появляется рекомендация.' },
-        { name: 'CRITICAL', body: 'Высокий риск или уже опасное состояние. Требуется немедленное действие.' },
-        { name: 'RECOVERY', body: 'Наблюдение после вмешательства до подтвержденной стабилизации.' },
+        { name: 'Спокойно', body: 'Всё выглядит стабильно. Экран остаётся тихим.' },
+        { name: 'Сахар снижается', body: 'Появляется снижение. Внимание, без паники.' },
+        { name: 'Скоро нужно внимание', body: 'Опасный уровень может быть близко. Steady подскажет следующий шаг.' },
+        { name: 'Нужна срочная помощь', body: 'Ситуация требует действия сейчас.' },
+        { name: 'Становится лучше', body: 'Steady остаётся рядом, пока всё снова не станет спокойнее.' },
       ],
     },
     night: {
-      title: 'Ночной Режим',
-      intro: 'Ночной режим - сердце продукта. Он должен раньше замечать риск, но не превращать всю ночь в шум.',
+      title: 'Ночью',
+      intro: 'Будьте ближе, когда это важно — не будя весь дом.',
       points: [
-        'Более чувствительные пороги.',
-        'Более быстрое подключение резерва.',
-        'Обязательные критические сигналы.',
-        'Будущий voice-режим для ночного сценария.',
+        'Более чутко ночью.',
+        'Резерв подключается раньше, когда нужно.',
+        'Критические сигналы, когда безопасность действительно требует этого.',
+        'Голосовая поддержка — позже.',
       ],
-      escalationTitle: 'Шаги Сигнала',
-      escalation: ['1. Сигнал', '2. Повтор', '3. Усиление', '4. Подключение Резерва'],
+      escalationTitle: 'Как нарастает поддержка',
+      escalation: ['1. Мягкое напоминание', '2. Спокойная проверка', '3. Более настойчивый сигнал', '4. Подключить близкого человека'],
     },
     family: {
-      title: 'Семейная Модель',
-      intro: 'Продукт построен как единый сценарий поддержки для всей семьи в течение дня.',
+      title: 'Семья',
+      intro: 'Один заботливый сценарий на весь день.',
       points: [
-        'Ребёнок, родитель и помогающий взрослый видят одну и ту же ситуацию.',
-        'Передача ответственности видна и понятна.',
-        'Экран показывает, кто отвечает прямо сейчас.',
-        'Утренний итог остаётся коротким и простым.',
+        'Ребёнок, родитель и близкий взрослый видят одну картину.',
+        'Понятно, кто отвечает.',
+        'Ответственный виден на экране.',
+        'Короткий утренний итог, который легко прочитать.',
       ],
     },
     trust: {
-      title: 'Доверие И Границы',
-      intro: 'Система поддерживает действия, но не является медицинским устройством и не заменяет врача.',
-      legalTitle: 'Границы Доверия',
+      title: 'Важно знать',
+      intro: 'Steady поддерживает повседневную жизнь. Это не медицинское устройство и не врач.',
+      legalTitle: 'Важные границы',
       legal: [
         'Не является медицинским инструментом.',
         'Не ставит диагнозы и не лечит.',
@@ -541,12 +551,12 @@ export const COPY: Record<Language, Copy> = {
         'Зависит от качества устройств, данных и реакции пользователя.',
       ],
       mvpTitle: 'Текущий Фокус',
-      mvpIn: ['CGM', 'Ночная поддержка', 'Критический сигнал', 'Подключение резерва', 'Восстановление', 'Семейная поддержка'],
-      mvpOut: ['Режим T2', 'Физическое устройство', 'AI слой', 'Аналитические панели', 'Сложные настройки'],
+      mvpIn: ['Тип 1 и 2', 'CGM', 'Ночь', 'Критические сигналы', 'Резерв', 'Восстановление', 'Семья'],
+      mvpOut: ['Расширенная аналитика', 'Физическое устройство', 'AI слой', 'Аналитические панели', 'Сложные настройки'],
     },
     summary: {
-      title: 'Простой Утренний Итог',
-      body: '1 сигнал. Родитель ответил. Ребёнок восстановился.',
+      title: 'Спокойный утренний итог',
+      body: 'Один сигнал. Родитель ответил. Ребёнку стало лучше.',
     },
     footer: {
       disclaimer:
@@ -555,7 +565,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Тема',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'В Текущем Фокусе',
       mvpOut: 'Вне Текущего Фокуса',
       selectLanguage: 'Выбор Языка',
@@ -567,21 +576,21 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   uk: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Головна',
-      system: 'Система',
-      night: 'Нічний режим',
+      system: 'Як допомагає',
+      night: 'Вночі',
       family: 'Сімʼя',
-      trust: 'Довіра',
+      trust: 'Важливо знати',
     },
-    signIn: 'Відкрити доступ',
+    signIn: 'Увійти',
     titleByPage: {
-      home: 'Система Підтримки T1D',
-      system: 'Архітектура Системи',
-      night: 'Нічний Режим',
-      family: 'Сімейна Модель',
-      trust: 'Довіра Та Межі',
+      home: 'Steady',
+      system: 'Як допомагає',
+      night: 'Вночі',
+      family: 'Сімʼя',
+      trust: 'Важливо знати',
     },
     footerSections: {
       product: 'Продукт',
@@ -589,48 +598,47 @@ export const COPY: Record<Language, Copy> = {
       account: 'Акаунт',
     },
     hero: {
-      eyebrow: 'Нічна підтримка для сімей, які живуть з T1D',
-      title: 'Раніше побачити ризик. Зрозуміти, хто відповідає. Спокійніше пройти ніч.',
+      eyebrow: 'Окремі шляхи для діабету 1 і 2 типу',
+      title: 'Спокійна підтримка разом — вдень і вночі.',
       subtitle:
-        'T1D допомагає дитині, батькам і дорослому для підтримки діяти як одна команда, коли вночі падає цукор. Одразу видно, що відбувається, що робити далі і хто взяв відповідальність.',
-      primary: 'Створити акаунт',
-      secondary: 'Відкрити систему',
-      note: 'Просто за змістом: зрозумілий сигнал, зрозуміла передача відповідальності, короткий ранковий підсумок.',
+        'Steady допомагає дітям, батькам і дорослим розуміти, що відбувається, і почуватися спокійніше, коли змінюється цукор.',
+      primary: 'Почати',
+      secondary: 'Як це допомагає',
+      note: 'Мʼякі нагадування. Зрозумілий наступний крок. Без зайвого.',
     },
     principle: {
-      title: 'Ключовий Принцип',
-      body: 'Ніч має бути зрозумілою, спокійною і керованою.',
+      title: 'Наш підхід',
+      body: 'Спокійна ніч і зрозумілий день.',
     },
     product: {
-      title: 'Що Дає Продукт',
-      body:
-        'Одне місце, де можна побачити нічну ситуацію, зрозуміти, хто вже реагує, і передати підтримку далі, якщо це потрібно.',
+      title: 'Що отримує сімʼя',
+      body: 'Мʼяка картина зараз, зрозумілий наступний крок і місце, щоб видихнути.',
       points: [
-        'Більш ясну картину вночі без зайвої метушні.',
-        'Спільну видимість для дитини, батьків і дорослого для підтримки.',
-        'Прості наступні кроки в ризикований момент.',
-        'Короткий підсумок зранку.',
+        'Спокійніше вночі.',
+        'Одна спільна картина для дитини, батька і близького дорослого.',
+        'Один зрозумілий крок, коли стає тривожно.',
+        'Короткий добрий ранковий підсумок.',
       ],
     },
     architecture: {
-      title: 'Архітектура',
+      title: 'Як Steady працює всередині',
       items: [
-        { title: 'Data Layer', body: 'Джерела CGM, такі як Dexcom, і в майбутньому мобільні сигнали.' },
-        { title: 'Normalization Layer', body: 'Єдиний формат, синхронізація за часом і оцінка достовірності.' },
-        { title: 'State Engine', body: 'Стани: NORMAL, FALLING, RISK, CRITICAL, RECOVERY.' },
-        { title: 'Risk Engine', body: 'Аналіз тренду, швидкості зміни і короткий прогноз на 15-30 хвилин.' },
-        { title: 'Логіка Сигналів', body: 'Вирішує, коли сповіщати, наскільки помітно і що має статися далі.' },
-        { title: 'Сповіщення', body: 'Push, повтор, підключення резерву і зрозуміле підтвердження, коли хтось відповів.' },
+        { title: 'З ваших пристроїв', body: 'Джерела CGM, такі як Dexcom, з можливістю додати інші пристрої пізніше.' },
+        { title: 'Сенс у цифрах', body: 'Час, свіжість і довіра до даних — без потоку сирих чисел.' },
+        { title: 'Що відбувається зараз', body: 'Проста поточна картина замість стіни показників.' },
+        { title: 'Трохи наперед', body: 'Тренд і короткий прогноз, щоб встигнути відреагувати раніше.' },
+        { title: 'Коли варто звернутися', body: 'Steady вирішує, коли достатньо мʼякого нагадування, а коли потрібна допомога близьких.' },
+        { title: 'Як сімʼя отримує сповіщення', body: 'Push, повтор, резервна підтримка і зрозумілий знак, що хтось відповів.' },
       ],
     },
     states: {
-      title: 'Логіка Станів',
+      title: 'Що ви можете побачити',
       items: [
-        { name: 'NORMAL', body: 'Стабільний стан з мінімальним відображенням.' },
-        { name: 'FALLING', body: 'Виявлено зниження. Увага без паніки.' },
-        { name: 'RISK', body: 'Небезпечний рівень може бути досягнутий скоро. Зʼявляється рекомендація.' },
-        { name: 'CRITICAL', body: 'Високий ризик або вже небезпечний стан. Потрібна негайна дія.' },
-        { name: 'RECOVERY', body: 'Спостереження після втручання до підтвердженої стабілізації.' },
+        { name: 'Спокійно', body: 'Усе виглядає стабільно. Екран залишається тихим.' },
+        { name: 'Цукор знижується', body: 'Зʼявляється зниження. Увага, без паніки.' },
+        { name: 'Скоро потрібна увага', body: 'Небезпечний рівень може бути близько. Steady підкаже наступний крок.' },
+        { name: 'Потрібна термінова допомога', body: 'Ситуація потребує дії зараз.' },
+        { name: 'Стає краще', body: 'Steady залишається поруч, поки все знову не стане спокійніше.' },
       ],
     },
     night: {
@@ -680,7 +688,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Тема',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'У Поточному Фокусі',
       mvpOut: 'Поза Поточним Фокусом',
       selectLanguage: 'Вибір Мови',
@@ -692,7 +699,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   es: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Inicio',
       system: 'Sistema',
@@ -702,7 +709,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'Abrir Acceso',
     titleByPage: {
-      home: 'Sistema De Soporte T1D',
+      home: 'Steady — sistema de soporte',
       system: 'Arquitectura Del Sistema',
       night: 'Modo Nocturno',
       family: 'Modelo Familiar',
@@ -714,10 +721,10 @@ export const COPY: Record<Language, Copy> = {
       account: 'Cuenta',
     },
     hero: {
-      eyebrow: 'Apoyo nocturno para familias que viven con T1D',
+      eyebrow: 'Caminos separados para diabetes tipo 1 y tipo 2',
       title: 'Ver el riesgo antes. Saber quién responde. Pasar la noche con menos caos.',
       subtitle:
-        'T1D ayuda al niño, al padre o madre y al cuidador a actuar como un solo equipo cuando la glucosa baja por la noche. Muestra qué está pasando, qué hacer ahora y quién tomó la responsabilidad.',
+        'Steady ayuda al niño, al padre o madre y al cuidador a actuar como un solo equipo cuando la glucosa baja por la noche. Muestra qué está pasando, qué hacer ahora y quién tomó la responsabilidad.',
       primary: 'Crear Cuenta',
       secondary: 'Abrir Sistema',
       note: 'Simple a propósito: alertas claras, relevo claro y un resumen corto por la mañana.',
@@ -792,7 +799,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'Lo Que Incluye Hoy',
       mvpIn: ['CGM', 'Escenario nocturno', 'Aviso crítico', 'Refuerzo del aviso', 'Seguimiento de recuperación', 'Modo familiar'],
-      mvpOut: ['Modo T2', 'Dispositivo físico', 'Capa AI', 'Paneles analíticos', 'Configuración compleja'],
+      mvpOut: ['Analítica avanzada', 'Dispositivo físico', 'Capa AI', 'Paneles analíticos', 'Configuración compleja'],
     },
     summary: {
       title: 'Resumen Simple De La Mañana',
@@ -805,7 +812,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Tema',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'Incluido Hoy',
       mvpOut: 'Fuera Del Enfoque Actual',
       selectLanguage: 'Seleccionar Idioma',
@@ -817,7 +823,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   fr: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Accueil',
       system: 'Systeme',
@@ -827,7 +833,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'Ouvrir L Acces',
     titleByPage: {
-      home: 'Systeme De Support T1D',
+      home: 'Steady — système de support',
       system: 'Architecture Du Systeme',
       night: 'Mode Nuit',
       family: 'Modele Familial',
@@ -839,10 +845,10 @@ export const COPY: Record<Language, Copy> = {
       account: 'Compte',
     },
     hero: {
-      eyebrow: 'Soutien nocturne pour les familles vivant avec un T1D',
+      eyebrow: 'Parcours distincts pour diabète type 1 et type 2',
       title: 'Voir le risque plus tot. Savoir qui repond. Traverser la nuit avec moins de chaos.',
       subtitle:
-        'T1D aide l enfant, le parent et l aidant a agir comme une seule equipe quand le glucose baisse la nuit. Il montre ce qui se passe, quoi faire ensuite et qui a pris la responsabilite.',
+        'Steady aide l enfant, le parent et l aidant a agir comme une seule equipe quand le glucose baisse la nuit. Il montre ce qui se passe, quoi faire ensuite et qui a pris la responsabilite.',
       primary: 'Creer Un Compte',
       secondary: 'Ouvrir Le Systeme',
       note: 'Simple par choix: alertes claires, relais clair, resume court le matin.',
@@ -917,7 +923,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'Ce Qui Est Inclus Aujourd Hui',
       mvpIn: ['CGM', 'Scenario de nuit', 'Alerte critique', 'Renforcement de l alerte', 'Suivi de recuperation', 'Mode familial'],
-      mvpOut: ['Mode T2', 'Appareil physique', 'Couche AI', 'Tableaux analytiques', 'Parametres complexes'],
+      mvpOut: ['Analytique avancée', 'Appareil physique', 'Couche AI', 'Tableaux analytiques', 'Parametres complexes'],
     },
     summary: {
       title: 'Resume Simple Du Matin',
@@ -930,7 +936,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Theme',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'Inclus Aujourd Hui',
       mvpOut: 'Hors Du Focus Actuel',
       selectLanguage: 'Choisir La Langue',
@@ -942,7 +947,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   de: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Start',
       system: 'System',
@@ -952,7 +957,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'Zugang Offnen',
     titleByPage: {
-      home: 'T1D Support System',
+      home: 'Steady',
       system: 'Systemarchitektur',
       night: 'Nachtmodus',
       family: 'Familienmodell',
@@ -964,13 +969,13 @@ export const COPY: Record<Language, Copy> = {
       account: 'Konto',
     },
     hero: {
-      eyebrow: 'Nachtunterstutzung fur Familien mit T1D',
-      title: 'Risiken fruher sehen. Wissen, wer reagiert. Ruhiger durch die Nacht kommen.',
+      eyebrow: 'Getrennte Wege für Diabetes Typ 1 und Typ 2',
+      title: 'Ruhige Unterstützung gemeinsam — Tag und Nacht.',
       subtitle:
-        'T1D hilft Kind, Elternteil und Betreuungsperson, nachts als ein Team zu handeln, wenn der Glukosewert fallt. Es zeigt, was passiert, was als Nachstes zu tun ist und wer die Verantwortung ubernommen hat.',
-      primary: 'Konto Erstellen',
-      secondary: 'System Offnen',
-      note: 'Bewusst einfach: klare Warnung, klare Ubergabe, kurze Morgenubersicht.',
+        'Steady hilft Kindern, Eltern und Erwachsenen zu verstehen, was passiert, und sich ruhiger zu fühlen, wenn sich der Zucker ändert.',
+      primary: 'Loslegen',
+      secondary: 'So hilft es',
+      note: 'Sanfte Hinweise. Ein klarer nächster Schritt. Kein Durcheinander.',
     },
     principle: {
       title: 'Kernprinzip',
@@ -1042,7 +1047,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'Was Heute Dabei Ist',
       mvpIn: ['CGM', 'Nachtszenario', 'Kritischer Hinweis', 'Verstarkter Hinweis', 'Beobachtung der Erholung', 'Familienmodus'],
-      mvpOut: ['T2 Modus', 'Physisches Gerat', 'AI Schicht', 'Analyse Dashboards', 'Komplexe Einstellungen'],
+      mvpOut: ['Erweiterte Analytik', 'Physisches Gerat', 'AI Schicht', 'Analyse Dashboards', 'Komplexe Einstellungen'],
     },
     summary: {
       title: 'Einfache Morgenubersicht',
@@ -1055,7 +1060,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Thema',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'Heute Dabei',
       mvpOut: 'Außerhalb Des Aktuellen Fokus',
       selectLanguage: 'Sprache Wählen',
@@ -1067,7 +1071,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   zh: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: '主页',
       system: '系统',
@@ -1077,7 +1081,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: '打开访问',
     titleByPage: {
-      home: 'T1D 支持系统',
+      home: 'Steady 支持系统',
       system: '系统架构',
       night: '夜间模式',
       family: '家庭模式',
@@ -1089,10 +1093,10 @@ export const COPY: Record<Language, Copy> = {
       account: '账户',
     },
     hero: {
-      eyebrow: '为 T1D 家庭准备的夜间支持',
+      eyebrow: '1 型与 2 型糖尿病的独立路径',
       title: '更早看到风险。知道谁在回应。让夜晚少一点混乱。',
       subtitle:
-        '当夜间血糖下降时，T1D 帮助孩子、家长和照护者像一个团队一样协作。它会清楚显示正在发生什么、下一步该做什么，以及谁已经接手。',
+        '当夜间血糖变化时，Steady 帮助孩子、家长和照护者像一个团队一样协作。它会清楚显示正在发生什么、下一步该做什么，以及谁已经接手。',
       primary: '创建账户',
       secondary: '打开系统',
       note: '刻意保持简单：清楚的提醒、清楚的交接、简短的晨间总结。',
@@ -1167,7 +1171,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: '当前包含内容',
       mvpIn: ['CGM', '夜间场景', '关键提醒', '提醒升级', '恢复观察', '家庭模式'],
-      mvpOut: ['T2 模式', '实体设备', 'AI 层', '分析仪表板', '复杂设置'],
+      mvpOut: ['高级分析', '实体设备', 'AI 层', '分析仪表板', '复杂设置'],
     },
     summary: {
       title: '简洁晨间总结',
@@ -1180,7 +1184,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: '主题',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: '当前包含',
       mvpOut: '不在当前重点内',
       selectLanguage: '选择语言',
@@ -1192,7 +1195,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   ja: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'ホーム',
       system: 'システム',
@@ -1202,7 +1205,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'アクセスを開く',
     titleByPage: {
-      home: 'T1D サポートシステム',
+      home: 'Steady サポート',
       system: 'システム構成',
       night: 'ナイトモード',
       family: '家族モデル',
@@ -1214,10 +1217,10 @@ export const COPY: Record<Language, Copy> = {
       account: 'アカウント',
     },
     hero: {
-      eyebrow: 'T1D と暮らす家族のための夜間サポート',
+      eyebrow: '1 型と 2 型糖尿病それぞれの専用パス',
       title: 'リスクを早く知る。誰が対応しているか分かる。夜をもっと落ち着いて乗り切る。',
       subtitle:
-        '夜に血糖が下がったとき、T1D は子ども、保護者、ケア提供者が一つのチームとして動けるようにします。何が起きているか、次に何をするか、誰が引き受けたかがすぐ分かります。',
+        '夜に血糖が動いたとき、Steady は子ども、保護者、ケア提供者が一つのチームとして動けるようにします。何が起きているか、次に何をするか、誰が引き受けたかがすぐ分かります。',
       primary: 'アカウント作成',
       secondary: 'システムを開く',
       note: '意図的にシンプルです。分かりやすい通知、分かりやすい引き継ぎ、短い朝のまとめ。',
@@ -1292,7 +1295,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'いま含まれるもの',
       mvpIn: ['CGM', '夜間シナリオ', '重要な通知', '通知の強化', '回復の見守り', '家族モード'],
-      mvpOut: ['T2 モード', '物理デバイス', 'AI レイヤー', '分析ダッシュボード', '複雑な設定'],
+      mvpOut: ['高度な分析', '物理デバイス', 'AI レイヤー', '分析ダッシュボード', '複雑な設定'],
     },
     summary: {
       title: 'シンプルな朝のまとめ',
@@ -1305,7 +1308,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'テーマ',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'いま含まれる',
       mvpOut: 'いまの重点の外',
       selectLanguage: '言語を選択',
@@ -1317,7 +1319,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   pt: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'Inicio',
       system: 'Sistema',
@@ -1327,7 +1329,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'Abrir Acesso',
     titleByPage: {
-      home: 'Sistema De Suporte T1D',
+      home: 'Steady — suporte familiar',
       system: 'Arquitetura Do Sistema',
       night: 'Modo Noturno',
       family: 'Modelo Familiar',
@@ -1339,10 +1341,10 @@ export const COPY: Record<Language, Copy> = {
       account: 'Conta',
     },
     hero: {
-      eyebrow: 'Apoio noturno para familias que vivem com T1D',
+      eyebrow: 'Caminhos separados para diabetes tipo 1 e tipo 2',
       title: 'Ver o risco mais cedo. Saber quem esta respondendo. Passar a noite com menos caos.',
       subtitle:
-        'O T1D ajuda a crianca, o responsavel e o cuidador a agir como uma so equipe quando a glicose cai durante a noite. Mostra o que esta acontecendo, o que fazer em seguida e quem assumiu a responsabilidade.',
+        'O Steady ajuda a crianca, o responsavel e o cuidador a agir como uma so equipe quando a glicose muda durante a noite. Mostra o que esta acontecendo, o que fazer em seguida e quem assumiu a responsabilidade.',
       primary: 'Criar Conta',
       secondary: 'Abrir Sistema',
       note: 'Simples de proposito: aviso claro, passagem clara e um resumo curto pela manha.',
@@ -1417,7 +1419,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'O Que Entra Hoje',
       mvpIn: ['CGM', 'Cenario noturno', 'Aviso critico', 'Reforco do aviso', 'Acompanhamento da recuperacao', 'Modo familia'],
-      mvpOut: ['Modo T2', 'Dispositivo fisico', 'Camada AI', 'Dashboards analiticos', 'Configuracoes complexas'],
+      mvpOut: ['Analitica avancada', 'Dispositivo fisico', 'Camada AI', 'Dashboards analiticos', 'Configuracoes complexas'],
     },
     summary: {
       title: 'Resumo Simples Da Manha',
@@ -1430,7 +1432,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'Tema',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'Incluído Hoje',
       mvpOut: 'Fora Do Foco Atual',
       selectLanguage: 'Selecionar Idioma',
@@ -1442,7 +1443,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   he: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'בית',
       system: 'מערכת',
@@ -1452,7 +1453,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'פתח גישה',
     titleByPage: {
-      home: 'מערכת התמיכה T1D',
+      home: 'Steady — מערכת תמיכה',
       system: 'ארכיטקטורת המערכת',
       night: 'מצב לילה',
       family: 'המודל המשפחתי',
@@ -1464,10 +1465,10 @@ export const COPY: Record<Language, Copy> = {
       account: 'חשבון',
     },
     hero: {
-      eyebrow: 'תמיכת לילה למשפחות שחיות עם T1D',
+      eyebrow: 'מסלולים נפרדים לסוכרת סוג 1 וסוג 2',
       title: 'לראות סיכון מוקדם יותר. לדעת מי מגיב. לעבור את הלילה עם פחות כאוס.',
       subtitle:
-        'T1D עוזר לילד, להורה ולמטפל לפעול כמו צוות אחד כשהגלוקוז יורד בלילה. רואים מה קורה, מה הצעד הבא ומי לקח אחריות.',
+        'Steady עוזר לילד, להורה ולמטפל לפעול כמו צוות אחד כשהגלוקוז יורד בלילה. רואים מה קורה, מה הצעד הבא ומי לקח אחריות.',
       primary: 'יצירת חשבון',
       secondary: 'פתח מערכת',
       note: 'פשוט בכוונה: התרעה ברורה, העברה ברורה וסיכום קצר בבוקר.',
@@ -1542,7 +1543,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'המיקוד הנוכחי',
       mvpIn: ['CGM', 'תרחיש לילה', 'התראה קריטית', 'הסלמה', 'התאוששות', 'מצב משפחה'],
-      mvpOut: ['מצב סוג 2', 'מכשיר פיזי', 'שכבת AI', 'דשבורדי אנליטיקה', 'הגדרות מורכבות'],
+      mvpOut: ['אנליטיקה מתקדמת', 'מכשיר פיזי', 'שכבת AI', 'דשבורדי אנליטיקה', 'הגדרות מורכבות'],
     },
     summary: {
       title: 'סיכום בוקר פשוט',
@@ -1555,7 +1556,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'ערכת נושא',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'בתוך המיקוד הנוכחי',
       mvpOut: 'מחוץ למיקוד הנוכחי',
       selectLanguage: 'בחירת שפה',
@@ -1567,7 +1567,7 @@ export const COPY: Record<Language, Copy> = {
     },
   },
   ar: {
-    brand: 'T1D',
+    brand: PRODUCT_NAME,
     nav: {
       home: 'الرئيسية',
       system: 'النظام',
@@ -1577,7 +1577,7 @@ export const COPY: Record<Language, Copy> = {
     },
     signIn: 'افتح الوصول',
     titleByPage: {
-      home: 'نظام دعم T1D',
+      home: 'Steady — نظام الدعم',
       system: 'بنية النظام',
       night: 'الوضع الليلي',
       family: 'النموذج العائلي',
@@ -1589,10 +1589,10 @@ export const COPY: Record<Language, Copy> = {
       account: 'الحساب',
     },
     hero: {
-      eyebrow: 'دعم ليلي للعائلات التي تعيش مع T1D',
+      eyebrow: 'مسارات منفصلة لسكري النوع 1 والنوع 2',
       title: 'رؤية الخطر مبكرًا. معرفة من يستجيب. عبور الليل بهدوء أكبر.',
       subtitle:
-        'يساعد T1D الطفل وولي الأمر ومقدم الرعاية على العمل كفريق واحد عندما ينخفض السكر ليلًا. يوضح ما يحدث الآن، وما الخطوة التالية، ومن تولى المسؤولية.',
+        'يساعد Steady الطفل وولي الأمر ومقدم الرعاية على العمل كفريق واحد عندما يتغير السكر ليلًا. يوضح ما يحدث الآن، وما الخطوة التالية، ومن تولى المسؤولية.',
       primary: 'إنشاء حساب',
       secondary: 'افتح النظام',
       note: 'البساطة مقصودة: تنبيه واضح، تسليم واضح، وملخص قصير في الصباح.',
@@ -1667,7 +1667,7 @@ export const COPY: Record<Language, Copy> = {
       ],
       mvpTitle: 'التركيز الحالي',
       mvpIn: ['CGM', 'سيناريو الليل', 'تنبيه حرج', 'تصعيد', 'تعافٍ', 'وضع العائلة'],
-      mvpOut: ['وضع النوع الثاني', 'جهاز فعلي', 'طبقة AI', 'لوحات تحليلية', 'إعدادات معقدة'],
+      mvpOut: ['تحليلات متقدمة', 'جهاز فعلي', 'طبقة AI', 'لوحات تحليلية', 'إعدادات معقدة'],
     },
     summary: {
       title: 'ملخص صباحي بسيط',
@@ -1680,7 +1680,6 @@ export const COPY: Record<Language, Copy> = {
       accountLabel: 'السمة',
     },
     ui: {
-      biomathCore: 'BioMath Core',
       mvpIn: 'ضمن التركيز الحالي',
       mvpOut: 'خارج التركيز الحالي',
       selectLanguage: 'اختيار اللغة',
@@ -1716,6 +1715,8 @@ export const buildPagePaths = (basePath?: string): Record<Page, string> => {
     terms: `${normalizedBase}/terms` || '/terms',
     medical: `${normalizedBase}/medical-disclaimer` || '/medical-disclaimer',
     compliance: `${normalizedBase}/compliance` || '/compliance',
+    downloadDesktop: `${normalizedBase}/download/desktop` || '/download/desktop',
+    downloadMobile: `${normalizedBase}/download/mobile` || '/download/mobile',
   };
 };
 
@@ -1732,7 +1733,9 @@ export const resolvePage = (pathname: string, pagePaths: Record<Page, string>): 
   if (pathname === pagePaths.terms) return 'terms';
   if (pathname === pagePaths.medical) return 'medical';
   if (pathname === pagePaths.compliance) return 'compliance';
+  if (pathname === pagePaths.downloadDesktop) return 'downloadDesktop';
+  if (pathname === pagePaths.downloadMobile) return 'downloadMobile';
   return 'home';
 };
 
-export const pageIcons = [Workflow, ShieldAlert, MoonStar, HeartHandshake, BellRing, TimerReset, AlertTriangle];
+export const pageIcons = [Heart, MoonStar, Users, BellRing, HeartHandshake, TimerReset, AlertTriangle];

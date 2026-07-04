@@ -5,6 +5,10 @@ dist/
 .env.production
 .env
 server/data/*.json
+.tmp-e2e-data/
+playwright-report/
+test-results/
+.lighthouseci/
 .vite/
 *.log
 .DS_Store

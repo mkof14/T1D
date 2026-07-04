@@ -1,0 +1,175 @@
+
+.t1d-glucose-dashboard {
+  margin-top: 1.25rem;
+}
+
+.t1d-glucose-hero {
+  border-radius: 1.5rem;
+  padding: 1.5rem 1.35rem;
+  border: 1px solid rgba(251, 146, 60, 0.22);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(52, 211, 153, 0.18), transparent 42%),
+    linear-gradient(135deg, rgba(255, 251, 247, 0.98), rgba(255, 247, 242, 0.96));
+  box-shadow: var(--card-shadow-strong);
+}
+
+.t1d-glucose-dashboard--dark .t1d-glucose-hero {
+  border-color: rgba(251, 146, 60, 0.28);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(52, 211, 153, 0.12), transparent 42%),
+    linear-gradient(135deg, rgba(24, 20, 28, 0.98), rgba(18, 22, 34, 0.96));
+}
+
+.t1d-glucose-hero--stable {
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.t1d-glucose-hero--watch {
+  border-color: rgba(245, 158, 11, 0.42);
+}
+
+.t1d-glucose-hero--risk {
+  border-color: rgba(244, 63, 94, 0.42);
+}
+
+.t1d-glucose-hero__value {
+  font-size: clamp(3.5rem, 10vw, 5.5rem);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.t1d-glucose-hero__unit {
+  margin-bottom: 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  opacity: 0.72;
+}
+
+.t1d-glucose-hero__badge span {
+  background: rgba(255, 255, 255, 0.72);
+  color: rgb(67 41 31);
+}
+
+.t1d-glucose-dashboard--dark .t1d-glucose-hero__badge span {
+  background: rgba(15, 23, 42, 0.72);
+  color: rgb(248 250 252);
+}
+
+.t1d-glucose-panel {
+  border-radius: 1.25rem;
+  padding: 1.15rem 1.1rem;
+  border: 1px solid rgba(251, 146, 60, 0.16);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--card-shadow);
+}
+
+.t1d-glucose-panel--dark {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.t1d-glucose-chart {
+  width: 100%;
+  min-width: 18rem;
+  height: auto;
+}
+
+.t1d-glucose-chart__grid {
+  stroke: rgba(148, 163, 184, 0.22);
+  stroke-width: 1;
+}
+
+.t1d-glucose-chart__axis {
+  fill: rgba(100, 116, 139, 0.85);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.t1d-glucose-chart__target-band {
+  fill: rgba(52, 211, 153, 0.16);
+}
+
+.t1d-glucose-dashboard--dark .t1d-glucose-chart__target-band {
+  fill: rgba(52, 211, 153, 0.12);
+}
+
+.t1d-glucose-chart__line {
+  stroke: #ea580c;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.t1d-glucose-dashboard--dark .t1d-glucose-chart__line {
+  stroke: #fb923c;
+}
+
+.t1d-glucose-chart__dot {
+  fill: #ea580c;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 2;
+}
+
+.t1d-glucose-dashboard--dark .t1d-glucose-chart__dot {
+  fill: #fb923c;
+  stroke: rgba(15, 23, 42, 0.95);
+}
+
+.t1d-glucose-gauge__track {
+  position: relative;
+  height: 1rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.35), rgba(52, 211, 153, 0.35) 35%, rgba(52, 211, 153, 0.35) 65%, rgba(245, 158, 11, 0.35));
+  overflow: hidden;
+}
+
+.t1d-glucose-gauge__target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.t1d-glucose-gauge__marker {
+  position: absolute;
+  top: 50%;
+  width: 0.95rem;
+  height: 1.55rem;
+  border-radius: 0.45rem;
+  transform: translate(-50%, -50%);
+  background: #0f172a;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 8px 18px rgba(15, 23, 42, 0.25);
+}
+
+.t1d-glucose-dashboard--dark .t1d-glucose-gauge__marker {
+  background: #f8fafc;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.95), 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.t1d-glucose-stat {
+  border-radius: 1.1rem;
+  padding: 1rem;
+  border: 1px solid rgba(251, 146, 60, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.t1d-glucose-stat--dark {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.68);
+}
+
+.t1d-glucose-stat__value {
+  margin-top: 0.35rem;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.t1d-glucose-stat__value--sm {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
