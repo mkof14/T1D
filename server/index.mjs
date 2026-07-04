@@ -1,3 +1,4 @@
+import './load-env.mjs';
 import http from 'node:http';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
