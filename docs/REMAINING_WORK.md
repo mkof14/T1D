@@ -4,6 +4,13 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **Dexcom SQL dual-write** — `device_connections` + `oauth_credentials` synced on household updates and Dexcom poll
+- **`persistHouseholdUpdate`** — central helper mirrors household + Dexcom to SQL from dexcom/workspace/timeline routes
+- **Backfill** — includes Dexcom connection rows; verify script counts `device_connections` / `oauth_credentials`
+- **Vercel env sync** — defaults `T1D_SQL_READ_SHADOW=true` on production (override in `.env.local`)
+
+## Completed without you (prior pass)
+
 - **Phase D (partial): SQL read path** for auth — session + user lookup from Postgres when `T1D_SQL_READ=true`, KV fallback
 - **Shadow mode** — `T1D_SQL_READ_SHADOW=true` logs KV/SQL mismatches without switching reads
 - **Sign-in/sign-up** can resolve users by email from SQL when primary read is enabled

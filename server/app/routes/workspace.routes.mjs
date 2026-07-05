@@ -19,6 +19,7 @@ export const handleWorkspaceRoutes = async (ctx) => {
     findSessionUser,
     readHouseholds,
     writeHouseholds,
+    persistHouseholdUpdate,
     safeText,
     normalizeDiabetesType,
     buildWorkspacePayloadForRequest,
@@ -75,8 +76,7 @@ export const handleWorkspaceRoutes = async (ctx) => {
     }
 
     const nextHousehold = appendMealToHousehold(household, meal, current.user);
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     await appendAuditEvent(readJson, writeJson, DATA_DIR, {
       kind: 'nutrition_analyze',
       userId: current.user.id,
@@ -126,8 +126,7 @@ export const handleWorkspaceRoutes = async (ctx) => {
       safetyState: nextSafetyState,
       updatedAt: new Date().toISOString(),
     };
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     await appendAuditEvent(readJson, writeJson, DATA_DIR, {
       kind: 'safety_action',
       userId: current.user.id,

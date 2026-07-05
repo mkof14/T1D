@@ -32,7 +32,7 @@ import { handleFeedbackRoutes } from './app/routes/feedback.routes.mjs';
 import { handleSystemRoutes } from './app/routes/system.routes.mjs';
 import { buildWorkspacePayloadForRequest } from './services/workspace-payload-service.mjs';
 import { createAuthStorage } from './services/auth-storage.mjs';
-import { dualWritePollReadings, dualWriteHouseholdSnapshot } from './infrastructure/repositories/dual-write-service.mjs';
+import { dualWritePollReadings, dualWriteDexcomConnection } from './infrastructure/repositories/dual-write-service.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -207,11 +207,18 @@ const {
 const findSessionUser = async (req) => authStorage.findSessionUser(req, parseCookies);
 
 const mirrorHouseholdToSql = (household) => {
-  void dualWriteHouseholdSnapshot(household).then((result) => {
+  void dualWriteDexcomConnection(household).then((result) => {
     if (!result.ok && !result.skipped) {
-      console.warn('[t1d-api] household dual-write failed', result.error);
+      console.warn('[t1d-api] household/dexcom dual-write failed', result.error);
     }
   });
+};
+
+const persistHouseholdUpdate = async (households, householdIndex, nextHousehold) => {
+  households[householdIndex] = nextHousehold;
+  await writeHouseholds(households);
+  mirrorHouseholdToSql(nextHousehold);
+  return nextHousehold;
 };
 
 const sendJson = (res, status, payload, headers = {}) => {
@@ -331,6 +338,10 @@ const applyDexcomPollToHousehold = async (household, source = 'manual') => {
   if (!dualWriteResult.ok && !dualWriteResult.skipped) {
     console.warn('[t1d-api] glucose dual-write failed', dualWriteResult.error);
   }
+  const dexcomWriteResult = await dualWriteDexcomConnection(alertedHousehold);
+  if (!dexcomWriteResult.ok && !dexcomWriteResult.skipped) {
+    console.warn('[t1d-api] dexcom dual-write failed', dexcomWriteResult.error);
+  }
   return alertedHousehold;
 };
 
@@ -373,6 +384,7 @@ const buildRouteContext = (req, res, url, lang) => ({
   findSessionUser,
   readHouseholds,
   writeHouseholds,
+  persistHouseholdUpdate,
   mirrorHouseholdToSql,
   updateUser,
     readUsers,

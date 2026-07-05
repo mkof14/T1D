@@ -38,6 +38,8 @@ const productionEnv = {
 };
 
 if (local.DATABASE_URL) productionEnv.DATABASE_URL = local.DATABASE_URL;
+productionEnv.T1D_SQL_READ_SHADOW = local.T1D_SQL_READ_SHADOW || 'true';
+if (local.T1D_SQL_READ) productionEnv.T1D_SQL_READ = local.T1D_SQL_READ;
 if (local.DEXCOM_CLIENT_ID) productionEnv.DEXCOM_CLIENT_ID = local.DEXCOM_CLIENT_ID;
 if (local.DEXCOM_CLIENT_SECRET) productionEnv.DEXCOM_CLIENT_SECRET = local.DEXCOM_CLIENT_SECRET;
 if (local.UPSTASH_REDIS_REST_URL) productionEnv.UPSTASH_REDIS_REST_URL = local.UPSTASH_REDIS_REST_URL;

@@ -5,7 +5,7 @@ import { createStorage } from '../server/storage.mjs';
 import { getPool } from '../server/infrastructure/db.mjs';
 import { runMigrations } from '../server/infrastructure/db.mjs';
 import { ensureHouseholdRow } from '../server/infrastructure/repositories/household-repository.mjs';
-import { dualWriteHouseholdReadings, dualWriteUsers } from '../server/infrastructure/repositories/dual-write-service.mjs';
+import { dualWriteHouseholdReadings, dualWriteUsers, dualWriteDexcomConnection } from '../server/infrastructure/repositories/dual-write-service.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.T1D_DATA_DIR || path.join(__dirname, '..', 'server', 'data');
@@ -61,6 +61,12 @@ const main = async () => {
     } else if (!writeResult.skipped) {
       failures += 1;
       console.warn(`[backfill] readings ${household.id}:`, writeResult.error || 'failed');
+    }
+
+    const dexcomResult = await dualWriteDexcomConnection(household);
+    if (!dexcomResult.ok && !dexcomResult.skipped) {
+      failures += 1;
+      console.warn(`[backfill] dexcom ${household.id}:`, dexcomResult.error || 'failed');
     }
   }
 

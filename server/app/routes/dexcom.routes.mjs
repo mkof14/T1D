@@ -19,6 +19,7 @@ export const handleDexcomRoutes = async (ctx) => {
     findSessionUser,
     readHouseholds,
     writeHouseholds,
+    persistHouseholdUpdate,
     consumeOAuthState,
     createOAuthState,
     appendDexcomAudit,
@@ -60,7 +61,7 @@ export const handleDexcomRoutes = async (ctx) => {
     }
 
     const nextDexcom = await dexcomOAuthCallback(households[householdIndex], code);
-    households[householdIndex] = appendDexcomAudit({
+    const nextHousehold = appendDexcomAudit({
       ...households[householdIndex],
       dexcom: nextDexcom,
       updatedAt: new Date().toISOString(),
@@ -70,7 +71,7 @@ export const handleDexcomRoutes = async (ctx) => {
       headline: 'Dexcom OAuth callback',
       detail: nextDexcom.message,
     });
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     const status = nextDexcom.status === 'connected' ? 'success' : 'error';
     applySecurityHeaders(res);
     res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=${status}` });
@@ -107,8 +108,7 @@ export const handleDexcomRoutes = async (ctx) => {
       headline: 'Dexcom OAuth start',
       detail: start.dexcom.message,
     });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     sendJson(res, 200, { workspace: buildWorkspacePayloadForRequest(req, current.user, nextHousehold), redirectUrl: start.redirectUrl });
     return true;
   }
@@ -159,8 +159,7 @@ export const handleDexcomRoutes = async (ctx) => {
       headline: 'Dexcom OAuth callback',
       detail: nextDexcom.message,
     });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
     return true;
   }
@@ -190,8 +189,7 @@ export const handleDexcomRoutes = async (ctx) => {
       headline: 'Dexcom token refresh',
       detail: nextDexcom.message,
     });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
     return true;
   }
@@ -227,8 +225,7 @@ export const handleDexcomRoutes = async (ctx) => {
       headline: 'Dexcom connected',
       detail: nextDexcom.message,
     });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
     return true;
   }
@@ -258,8 +255,7 @@ export const handleDexcomRoutes = async (ctx) => {
       headline: 'Dexcom disconnected',
       detail: nextDexcom.message,
     });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
     return true;
   }

@@ -18,6 +18,7 @@ export const handleAlertTimelineRoutes = async ({
   findSessionUser,
   readHouseholds,
   writeHouseholds,
+  persistHouseholdUpdate,
   sendJson,
   readBody,
   BODY_TOO_LARGE,
@@ -114,17 +115,17 @@ export const handleAlertTimelineRoutes = async ({
       });
     }
 
-    households[index] = {
+    const nextHousehold = {
       ...household,
       safetyState: result.safetyState,
       updatedAt: new Date().toISOString(),
     };
-    await writeHouseholds(households);
+    await persistHouseholdUpdate(households, index, nextHousehold);
     sendJson(res, 200, {
       ok: true,
       alertId: resolvedAlertId,
       responderState: result.safetyState.responderOwnership?.state,
-      timeline: buildAlertTimeline(households[index], resolvedAlertId),
+      timeline: buildAlertTimeline(nextHousehold, resolvedAlertId),
     });
     return true;
   }

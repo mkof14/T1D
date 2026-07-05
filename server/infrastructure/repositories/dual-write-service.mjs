@@ -1,6 +1,7 @@
 import { getPool } from '../db.mjs';
 import { normalizeReading } from '../../domain/glucose/glucose-normalizer.mjs';
 import { ensureHouseholdRow } from './household-repository.mjs';
+import { syncDexcomConnectionRows } from './device-connection-repository.mjs';
 import { insertGlucoseReadingWithPool } from './glucose-reading-repository.mjs';
 import { upsertUserRow } from './user-repository.mjs';
 import {
@@ -55,6 +56,8 @@ export const dualWritePollReadings = async (household, previousReadings = [], ne
       if (result.inserted) inserted += 1;
     }
 
+    await syncDexcomConnectionRows(pool, household);
+
     return { ok: true, skipped: false, inserted };
   } catch (error) {
     return { ok: false, skipped: false, inserted: 0, error: error?.message || 'dual_write_failed' };
@@ -78,6 +81,27 @@ export const dualWriteHouseholdSnapshot = async (household) => {
     return { ok: true, skipped: false };
   } catch (error) {
     return { ok: false, skipped: false, error: error?.message || 'household_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteDexcomConnection = async (household) => {
+  if (!household?.id) {
+    return { ok: true, skipped: true, reason: 'missing_household' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await ensureHouseholdRow(pool, household);
+    await syncDexcomConnectionRows(pool, household);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'dexcom_dual_write_failed' };
   } finally {
     await pool.end();
   }
