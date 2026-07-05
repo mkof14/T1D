@@ -35,6 +35,12 @@ const productionEnv = {
   DEXCOM_API_BASE_URL: 'https://sandbox-api.dexcom.com',
 };
 
+if (local.DATABASE_URL) productionEnv.DATABASE_URL = local.DATABASE_URL;
+if (local.DEXCOM_CLIENT_ID) productionEnv.DEXCOM_CLIENT_ID = local.DEXCOM_CLIENT_ID;
+if (local.DEXCOM_CLIENT_SECRET) productionEnv.DEXCOM_CLIENT_SECRET = local.DEXCOM_CLIENT_SECRET;
+if (local.UPSTASH_REDIS_REST_URL) productionEnv.UPSTASH_REDIS_REST_URL = local.UPSTASH_REDIS_REST_URL;
+if (local.UPSTASH_REDIS_REST_TOKEN) productionEnv.UPSTASH_REDIS_REST_TOKEN = local.UPSTASH_REDIS_REST_TOKEN;
+
 const vercel = (args, input = '') =>
   spawnSync('npx', ['--yes', 'vercel@54.20.1', ...args], { input, encoding: 'utf8' });
 
