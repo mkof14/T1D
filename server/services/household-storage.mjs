@@ -1,3 +1,11 @@
+import {
+  findHouseholdByIdFromSql,
+  householdSqlShadowFingerprint,
+  isSqlReadEnabled,
+  isSqlReadShadowEnabled,
+  mergeHouseholdMetadata,
+} from '../infrastructure/repositories/sql-read-service.mjs';
+
 export const createHouseholdStorage = ({
   readJson,
   writeJson,
@@ -55,9 +63,43 @@ export const createHouseholdStorage = ({
     return persistHouseholdUpdate(households, index, nextHousehold);
   };
 
+  const findHouseholdById = async (householdId) => {
+    if (!householdId) return null;
+
+    const households = await readHouseholds();
+    const kvHousehold = households.find((entry) => entry.id === householdId) || null;
+
+    if (isSqlReadShadowEnabled()) {
+      const sqlHousehold = await findHouseholdByIdFromSql(householdId);
+      const kvFingerprint = householdSqlShadowFingerprint(kvHousehold);
+      const sqlFingerprint = householdSqlShadowFingerprint(sqlHousehold);
+      if (kvFingerprint !== sqlFingerprint) {
+        console.warn('[t1d-api] household sql-read shadow mismatch', {
+          householdId,
+          kvFingerprint,
+          sqlFingerprint,
+        });
+      }
+      if (isSqlReadEnabled() && sqlHousehold) {
+        return normalizeHouseholdRecord(mergeHouseholdMetadata(kvHousehold, sqlHousehold));
+      }
+      return kvHousehold;
+    }
+
+    if (isSqlReadEnabled()) {
+      const sqlHousehold = await findHouseholdByIdFromSql(householdId);
+      if (sqlHousehold) {
+        return normalizeHouseholdRecord(mergeHouseholdMetadata(kvHousehold, sqlHousehold));
+      }
+    }
+
+    return kvHousehold;
+  };
+
   return {
     readHouseholds,
     writeHouseholds,
+    findHouseholdById,
     normalizeHouseholdRecord,
     mirrorHouseholdToSql,
     persistHouseholdUpdate,

@@ -11,6 +11,7 @@ export const handleHouseholdRoutes = async (ctx) => {
     BODY_TOO_LARGE,
     findSessionUser,
     readHouseholds,
+    findHouseholdById,
     persistHouseholdRecord,
     persistHouseholdUpdate,
     updateUser,
@@ -31,8 +32,7 @@ export const handleHouseholdRoutes = async (ctx) => {
       sendJson(res, 401, { error: 'Unauthorized' });
       return true;
     }
-    const households = await readHouseholds();
-    const household = households.find((entry) => entry.id === current.user.householdId) || null;
+    const household = await findHouseholdById(current.user.householdId);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, household));
     return true;
   }

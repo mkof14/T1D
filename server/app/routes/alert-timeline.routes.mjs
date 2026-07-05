@@ -18,6 +18,7 @@ export const handleAlertTimelineRoutes = async (ctx) => {
     url,
     findSessionUser,
     readHouseholds,
+    findHouseholdById,
     persistHouseholdUpdate,
     sendJson,
     readBody,
@@ -32,8 +33,7 @@ export const handleAlertTimelineRoutes = async (ctx) => {
       sendJson(res, 401, { error: 'Unauthorized' });
       return true;
     }
-    const households = await readHouseholds();
-    const household = households.find((entry) => entry.id === current.user.householdId || entry.id === patientId);
+    const household = await findHouseholdById(current.user.householdId);
     if (!household) {
       sendJson(res, 404, { error: 'Household not found' });
       return true;
@@ -49,8 +49,7 @@ export const handleAlertTimelineRoutes = async (ctx) => {
       sendJson(res, 401, { error: 'Unauthorized' });
       return true;
     }
-    const households = await readHouseholds();
-    const household = households.find((entry) => entry.id === current.user.householdId);
+    const household = await findHouseholdById(current.user.householdId);
     if (!household) {
       sendJson(res, 404, { error: 'Household not found' });
       return true;

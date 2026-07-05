@@ -4,6 +4,12 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **Phase D+ household SQL read** — `findHouseholdByIdFromSql` + `findHouseholdById` merges relational metadata (name, invite, members) onto KV documents; safety/dexcom stay KV-only
+- **Shadow mode** — logs `[t1d-api] household sql-read shadow mismatch` when KV/SQL fingerprints differ
+- **Routes** — workspace + timeline reads use `findHouseholdById`; timeline supports `patientId=me`
+
+## Completed without you (prior pass)
+
 - **`create-app.mjs`** — full API bootstrap extracted from `index.mjs` (~35-line entrypoint)
 - **Integration tests** — duplicate signup 409 + health `sqlRead` field
 
@@ -112,7 +118,7 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 | Phase | Task |
 |-------|------|
 | **D** | Enable `T1D_SQL_READ_SHADOW=true` on prod, then `T1D_SQL_READ=true` after parity clean |
-| **D+** | Household document still KV-only (dexcom/safety); relational read for workspace payload later |
+| **D+** | Household metadata read from SQL when `T1D_SQL_READ=true` (merged with KV for safety/dexcom); shadow via existing flags |
 
 ---
 

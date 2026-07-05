@@ -6,6 +6,11 @@ import {
   mapSessionRow,
   mapUserRow,
   findSessionUserFromSql,
+  findHouseholdByIdFromSql,
+  mapHouseholdRow,
+  mapMemberRow,
+  mergeHouseholdMetadata,
+  householdSqlShadowFingerprint,
 } from '../../server/infrastructure/repositories/sql-read-service.mjs';
 
 describe('sql-read-service', () => {
@@ -74,6 +79,46 @@ describe('sql-read-service', () => {
     const previous = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
     const result = await findSessionUserFromSql('sess-1');
+    if (previous) process.env.DATABASE_URL = previous;
+    expect(result).toBeNull();
+  });
+
+  it('maps household rows and merges metadata onto kv documents', () => {
+    const household = mapHouseholdRow(
+      {
+        id: 'hh-1',
+        household_name: 'SQL Household',
+        child_name: 'Mila',
+        invite_code: 'INVITE123',
+      },
+      [{ id: 'mem-1', user_id: 'user-1', full_name: 'Parent', email: 'p@example.com', role: 'parent', status: 'active' }]
+    );
+
+    expect(household?.members).toHaveLength(1);
+    expect(mapMemberRow(null)).toBeNull();
+
+    const merged = mergeHouseholdMetadata(
+      {
+        id: 'hh-1',
+        householdName: 'KV Household',
+        childName: 'Old Name',
+        inviteCode: 'OLD',
+        safetyState: { stage: 'stable' },
+        members: [],
+      },
+      household
+    );
+
+    expect(merged.householdName).toBe('SQL Household');
+    expect(merged.safetyState).toEqual({ stage: 'stable' });
+    expect(merged.members).toHaveLength(1);
+    expect(householdSqlShadowFingerprint(merged)).toContain('hh-1:');
+  });
+
+  it('returns null household read without database url', async () => {
+    const previous = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    const result = await findHouseholdByIdFromSql('hh-1');
     if (previous) process.env.DATABASE_URL = previous;
     expect(result).toBeNull();
   });

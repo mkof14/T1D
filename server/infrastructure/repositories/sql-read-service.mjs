@@ -100,3 +100,77 @@ export const getSqlReadMode = () => {
   if (isSqlReadShadowEnabled()) return 'shadow';
   return 'off';
 };
+
+export const mapMemberRow = (row) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id || undefined,
+    fullName: row.full_name || '',
+    email: row.email || '',
+    role: row.role || 'parent',
+    status: row.status || 'active',
+  };
+};
+
+export const mapHouseholdRow = (row, members = []) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    householdName: row.household_name || '',
+    childName: row.child_name || '',
+    inviteCode: row.invite_code || '',
+    members: members.map(mapMemberRow).filter(Boolean),
+  };
+};
+
+export const householdSqlShadowFingerprint = (household) => {
+  if (!household) return null;
+  const members = (Array.isArray(household.members) ? household.members : [])
+    .map((member) => `${member.id}:${member.email}:${member.role}:${member.status || 'active'}`)
+    .sort()
+    .join('|');
+  return `${household.id}:${household.inviteCode || ''}:${household.childName || ''}:${household.householdName || ''}:${members}`;
+};
+
+export const mergeHouseholdMetadata = (kvHousehold, sqlHousehold) => {
+  if (!kvHousehold) return sqlHousehold;
+  if (!sqlHousehold) return kvHousehold;
+  return {
+    ...kvHousehold,
+    householdName: sqlHousehold.householdName || kvHousehold.householdName,
+    childName: sqlHousehold.childName || kvHousehold.childName,
+    inviteCode: sqlHousehold.inviteCode || kvHousehold.inviteCode,
+    members: sqlHousehold.members?.length ? sqlHousehold.members : kvHousehold.members,
+  };
+};
+
+export const findHouseholdByIdFromSql = async (householdId) => {
+  if (!householdId) return null;
+
+  const pool = await getPool();
+  if (!pool) return null;
+
+  try {
+    const householdResult = await pool.query(
+      `SELECT id, household_name, child_name, invite_code
+       FROM households
+       WHERE id = $1
+       LIMIT 1`,
+      [householdId]
+    );
+    if (householdResult.rows.length === 0) return null;
+
+    const membersResult = await pool.query(
+      `SELECT id, user_id, full_name, email, role, status
+       FROM household_members
+       WHERE household_id = $1
+       ORDER BY created_at ASC`,
+      [householdId]
+    );
+
+    return mapHouseholdRow(householdResult.rows[0], membersResult.rows);
+  } finally {
+    await pool.end();
+  }
+};

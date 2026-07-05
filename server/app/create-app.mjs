@@ -178,6 +178,7 @@ export const createApp = ({ serverDir }) => {
     persistHouseholdUpdate,
     persistHouseholdRecord,
     mirrorHouseholdToSql,
+    findHouseholdById,
   } = householdStorage;
 
   const dexcomPollService = createDexcomPollService({
@@ -214,6 +215,7 @@ export const createApp = ({ serverDir }) => {
     findSessionUser,
     readHouseholds,
     writeHouseholds,
+    findHouseholdById,
     persistHouseholdUpdate,
     persistHouseholdRecord,
     mirrorHouseholdToSql,
