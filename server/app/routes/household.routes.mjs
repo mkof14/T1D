@@ -274,6 +274,7 @@ export const handleHouseholdRoutes = async (ctx) => {
     };
     households[householdIndex] = nextHousehold;
     await writeHouseholds(households);
+    mirrorHouseholdToSql(nextHousehold);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
     return true;
   }

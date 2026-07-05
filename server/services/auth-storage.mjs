@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { applySecurityHeaders } from '../security-headers.mjs';
 import { dualWriteUser, dualWriteSession, dualWriteRevokeSession, dualWriteRevokeSessionsForUser } from '../infrastructure/repositories/dual-write-service.mjs';
+import {
+  findSessionUserFromSql,
+  isSqlReadEnabled,
+  isSqlReadShadowEnabled,
+} from '../infrastructure/repositories/sql-read-service.mjs';
 
 export const createAuthStorage = ({
   readJson,
@@ -221,17 +226,41 @@ export const createAuthStorage = ({
 
   const writePasswordResets = async (tokens) => writeJson(PASSWORD_RESETS_FILE, { tokens });
 
-  const findSessionUser = async (req, parseCookies) => {
-    const cookies = parseCookies(req.headers.cookie);
-    const sid = cookies[SESSION_COOKIE];
-    if (!sid) return null;
+  const findSessionUserFromKv = async (sessionId) => {
     const sessions = await readSessions();
-    const session = sessions.find((entry) => entry.id === sid);
+    const session = sessions.find((entry) => entry.id === sessionId);
     if (!session) return null;
     const users = await readUsers();
     const user = users.find((entry) => entry.id === session.userId);
     if (!user) return null;
     return { session, user };
+  };
+
+  const findSessionUser = async (req, parseCookies) => {
+    const cookies = parseCookies(req.headers.cookie);
+    const sid = cookies[SESSION_COOKIE];
+    if (!sid) return null;
+
+    if (isSqlReadShadowEnabled()) {
+      const [kvResult, sqlResult] = await Promise.all([
+        findSessionUserFromKv(sid),
+        findSessionUserFromSql(sid),
+      ]);
+      const kvUserId = kvResult?.user?.id || null;
+      const sqlUserId = sqlResult?.user?.id || null;
+      if (kvUserId !== sqlUserId) {
+        console.warn('[t1d-api] sql-read shadow mismatch', { sessionId: sid, kvUserId, sqlUserId });
+      }
+      if (isSqlReadEnabled() && sqlResult) return sqlResult;
+      return kvResult;
+    }
+
+    if (isSqlReadEnabled()) {
+      const sqlResult = await findSessionUserFromSql(sid);
+      if (sqlResult) return sqlResult;
+    }
+
+    return findSessionUserFromKv(sid);
   };
 
   return {

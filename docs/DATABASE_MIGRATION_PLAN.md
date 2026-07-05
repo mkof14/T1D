@@ -28,6 +28,8 @@ Relational schema in `server/infrastructure/migrations/001_core_schema.sql`:
 2. **Phase B** — Dual-write adapters: JSON KV + SQL repositories
 3. **Phase C** — Backfill script: export KV → SQL
 4. **Phase D** — Read from SQL, write dual
+   - Auth session/user: `T1D_SQL_READ=true` (opt-in), shadow via `T1D_SQL_READ_SHADOW=true`
+   - Household workspace payload still from KV until dexcom/safety columns migrate
 5. **Phase E** — Read/write SQL only; KV read-only fallback
 6. **Phase F** — Remove KV for core entities
 

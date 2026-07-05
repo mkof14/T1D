@@ -4,6 +4,7 @@ import { dexcomEnvConfig } from '../../dexcom-service.mjs';
 import { getStorageBackend, probeStorage } from '../../storage.mjs';
 import { isUpstashRateLimitEnabled } from '../../rate-limit.mjs';
 import { readOpenApiSpec } from '../../services/workspace-payload-service.mjs';
+import { getSqlReadMode } from '../../infrastructure/repositories/sql-read-service.mjs';
 
 export const handleSystemRoutes = async (ctx) => {
   const {
@@ -26,6 +27,7 @@ export const handleSystemRoutes = async (ctx) => {
       rateLimit: isUpstashRateLimitEnabled() ? 'upstash' : 'memory',
       dexcomLive: dexcomEnvConfig().useLiveMode,
       alertRuleVersion: ALERT_RULE_VERSION,
+      sqlRead: getSqlReadMode(),
     };
     if (storageProbe.error) payload.storageError = storageProbe.error;
     if (url.searchParams.get('verbose') === '1') {

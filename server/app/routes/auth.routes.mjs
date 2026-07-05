@@ -6,6 +6,7 @@ import {
   fetchGoogleProfile,
   isGoogleAuthEnabled,
 } from '../../google-auth.mjs';
+import { findUserByEmailFromSql, isSqlReadEnabled } from '../../infrastructure/repositories/sql-read-service.mjs';
 
 export const handleAuthRoutes = async (ctx) => {
   const {
@@ -256,7 +257,8 @@ export const handleAuthRoutes = async (ctx) => {
     const users = await readUsers();
 
     if (url.pathname === '/api/access/signup') {
-      if (users.some((entry) => entry.email === email)) {
+      const sqlExisting = isSqlReadEnabled() ? await findUserByEmailFromSql(email) : null;
+      if (users.some((entry) => entry.email === email) || sqlExisting) {
         sendJson(res, 409, { error: 'Unable to create account with these details' });
         return true;
       }
@@ -295,7 +297,10 @@ export const handleAuthRoutes = async (ctx) => {
       return true;
     }
 
-    const existing = users.find((entry) => entry.email === email);
+    let existing = users.find((entry) => entry.email === email);
+    if (!existing && isSqlReadEnabled()) {
+      existing = await findUserByEmailFromSql(email);
+    }
     if (!existing || !existing.passwordHash || !verifyPassword(password, existing.passwordHash)) {
       sendJson(res, 401, { error: 'Email or password is incorrect' });
       return true;

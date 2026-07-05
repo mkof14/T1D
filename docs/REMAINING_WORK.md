@@ -4,6 +4,14 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **Phase D (partial): SQL read path** for auth — session + user lookup from Postgres when `T1D_SQL_READ=true`, KV fallback
+- **Shadow mode** — `T1D_SQL_READ_SHADOW=true` logs KV/SQL mismatches without switching reads
+- **Sign-in/sign-up** can resolve users by email from SQL when primary read is enabled
+- **Health** exposes `sqlRead: off|shadow|primary`
+- **Preferences** now mirrors household snapshot to SQL
+
+## Completed without you (prior pass)
+
 - **Household members SQL sync** — `syncHouseholdMembers` on every `ensureHouseholdRow` (setup/join, backfill, Dexcom poll)
 - **Session SQL dual-write** — create/revoke sessions mirrored to `sessions` table
 - **Verify script** — `npm run verify:neon` now includes `household_members` + active `sessions` counts
@@ -56,8 +64,8 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 | Phase | Task |
 |-------|------|
-| **C** | Verify SQL row counts on Neon after live traffic (`npm run verify:neon`) |
-| **D** | Read path from SQL for users/households (KV fallback) |
+| **D** | Enable `T1D_SQL_READ_SHADOW=true` on prod, then `T1D_SQL_READ=true` after parity clean |
+| **D+** | Household document still KV-only (dexcom/safety); relational read for workspace payload later |
 
 ---
 
