@@ -5,11 +5,12 @@ import { createStorage } from '../server/storage.mjs';
 import { getPool } from '../server/infrastructure/db.mjs';
 import { runMigrations } from '../server/infrastructure/db.mjs';
 import { ensureHouseholdRow } from '../server/infrastructure/repositories/household-repository.mjs';
-import { dualWriteHouseholdReadings } from '../server/infrastructure/repositories/dual-write-service.mjs';
+import { dualWriteHouseholdReadings, dualWriteUsers } from '../server/infrastructure/repositories/dual-write-service.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.T1D_DATA_DIR || path.join(__dirname, '..', 'server', 'data');
 const HOUSEHOLDS_FILE = path.join(DATA_DIR, 'households.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const storage = createStorage({ dataDirectory: DATA_DIR });
 
@@ -26,9 +27,12 @@ const main = async () => {
 
   const payload = await storage.read(HOUSEHOLDS_FILE, { households: [] });
   const households = Array.isArray(payload.households) ? payload.households : [];
+  const usersPayload = await storage.read(USERS_FILE, { users: [] });
+  const users = Array.isArray(usersPayload.users) ? usersPayload.users : [];
 
   let householdsUpserted = 0;
   let readingsInserted = 0;
+  let usersUpserted = 0;
   let failures = 0;
 
   for (const household of households) {
@@ -56,11 +60,17 @@ const main = async () => {
     }
   }
 
+  const userResults = await dualWriteUsers(users);
+  usersUpserted = userResults.filter((entry) => entry.ok && !entry.skipped).length;
+  failures += userResults.filter((entry) => !entry.ok && !entry.skipped).length;
+
   console.log(JSON.stringify({
     ok: failures === 0,
     households: households.length,
     householdsUpserted,
     readingsInserted,
+    users: users.length,
+    usersUpserted,
     failures,
   }, null, 2));
 

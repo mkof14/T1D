@@ -12,6 +12,7 @@ Updated: 2026-07-05
 - **Backfill script:** `npm run db:backfill` (`scripts/backfill-kv-to-sql.mjs`)
 - **Route extraction:** auth, household, dexcom, workspace, feedback, system → `server/app/routes/`
 - **Workspace payload** moved to `server/services/workspace-payload-service.mjs`
+- **Auth storage** extracted to `server/services/auth-storage.mjs` with user SQL dual-write
 - **Tests:** timeline API integration + repository unit tests (run `npm run test:unit`)
 
 ## Completed without you (prior passes)
@@ -48,8 +49,8 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 | Phase | Task |
 |-------|------|
-| **C** | Verify `glucose_readings` rows on Neon after polls (`npm run db:backfill` run locally) |
-| **4** | Extract session/auth storage helpers; optional user/household SQL repositories |
+| **C** | Verify `users` + `glucose_readings` rows on Neon after live traffic |
+| **4 done** | Auth storage module + user dual-write on signup/update |
 
 ---
 

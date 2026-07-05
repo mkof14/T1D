@@ -28,6 +28,7 @@ export const handleAuthRoutes = async (ctx) => {
     MIN_PASSWORD_LENGTH,
     readUsers,
     writeUsers,
+    mirrorUsersToSql,
     readSessions,
     writeSessions,
     readPasswordResets,
@@ -226,6 +227,7 @@ export const handleAuthRoutes = async (ctx) => {
       entry.id === match.userId ? { ...entry, passwordHash: hashPassword(password) } : entry
     );
     await writeUsers(nextUsers);
+    mirrorUsersToSql([nextUsers.find((entry) => entry.id === match.userId)].filter(Boolean));
     await invalidateSessionsForUser(match.userId);
     sendJson(res, 200, { ok: true });
     return true;
@@ -273,6 +275,7 @@ export const handleAuthRoutes = async (ctx) => {
       };
       users.push(nextUser);
       await writeUsers(users);
+      mirrorUsersToSql([nextUser]);
 
       const nextSession = await createSessionForUser(nextUser.id);
 

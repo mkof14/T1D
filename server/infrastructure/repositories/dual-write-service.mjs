@@ -2,6 +2,7 @@ import { getPool } from '../db.mjs';
 import { normalizeReading } from '../../domain/glucose/glucose-normalizer.mjs';
 import { ensureHouseholdRow } from './household-repository.mjs';
 import { insertGlucoseReadingWithPool } from './glucose-reading-repository.mjs';
+import { upsertUserRow } from './user-repository.mjs';
 
 const newReadingsSince = (previousReadings = [], nextReadings = []) => {
   const previousIds = new Set(
@@ -60,4 +61,35 @@ export const dualWritePollReadings = async (household, previousReadings = [], ne
 export const dualWriteHouseholdReadings = async (household) => {
   const readings = household?.dexcom?.readings || [];
   return dualWritePollReadings(household, [], readings);
+};
+
+export const dualWriteUser = async (user) => {
+  if (!user?.id) {
+    return { ok: true, skipped: true, reason: 'missing_user' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    if (user.householdId) {
+      await ensureHouseholdRow(pool, { id: user.householdId, householdName: 'Household', inviteCode: 'UNKNOWN' });
+    }
+    await upsertUserRow(pool, user);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'user_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteUsers = async (users = []) => {
+  const results = [];
+  for (const user of users) {
+    results.push(await dualWriteUser(user));
+  }
+  return results;
 };
