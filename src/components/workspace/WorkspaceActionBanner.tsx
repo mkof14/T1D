@@ -34,8 +34,8 @@ export const WorkspaceActionBanner: React.FC<WorkspaceActionBannerProps> = ({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-base font-extrabold tracking-tight">{title}</p>
-        <p className="mt-1 text-sm leading-relaxed opacity-90">{body}</p>
-        <p className="mt-2 text-xs font-semibold opacity-75">{nextHint}</p>
+        <p className="mt-2 text-sm font-semibold leading-relaxed">{body}</p>
+        <p className="mt-3 text-sm font-bold leading-relaxed">{nextHint}</p>
         {onOpenTimeline && openTimelineLabel ? (
           <button type="button" onClick={onOpenTimeline} className="t1d-workspace-action-banner__link mt-3">
             {openTimelineLabel}

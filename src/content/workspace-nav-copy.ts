@@ -12,36 +12,34 @@ export type WorkspaceSectionId =
 
 export const WORKSPACE_SECTION_ORDER: WorkspaceSectionId[] = [
   'now',
-  'nutrition',
-  'timeline',
   'system',
   'alerts',
-  'settings',
   'family',
-  'history',
+  'timeline',
+  'settings',
 ];
 
 type NavEntry = { label: string; hint: string };
 
 export const WORKSPACE_NAV: Record<Language, Record<WorkspaceSectionId, NavEntry>> = {
   en: {
-    now: { label: 'Now', hint: 'State & actions' },
+    now: { label: 'Now', hint: 'Glucose & next step' },
     nutrition: { label: 'Meals', hint: 'Scan & analyze food' },
-    timeline: { label: 'Timeline', hint: 'Recent steps' },
-    system: { label: 'Connection', hint: 'Sensor & device' },
+    timeline: { label: 'Timeline', hint: 'What happened' },
+    system: { label: 'Dexcom', hint: 'Connect CGM' },
     alerts: { label: 'Alerts', hint: 'Who gets notified' },
-    settings: { label: 'Settings', hint: 'Day & night feel' },
-    family: { label: 'Family', hint: 'People & invite' },
+    settings: { label: 'Settings', hint: 'Day & night' },
+    family: { label: 'Family', hint: 'Invite code' },
     history: { label: 'History', hint: 'Past days' },
   },
   ru: {
-    now: { label: 'Сейчас', hint: 'Состояние и действия' },
+    now: { label: 'Сейчас', hint: 'Сахар и шаг' },
     nutrition: { label: 'Еда', hint: 'Скан и анализ' },
-    timeline: { label: 'Хронология', hint: 'Последние шаги' },
-    system: { label: 'Связь', hint: 'Датчик и устройство' },
+    timeline: { label: 'События', hint: 'Что было' },
+    system: { label: 'Dexcom', hint: 'Подключить CGM' },
     alerts: { label: 'Сигналы', hint: 'Кому приходит' },
     settings: { label: 'Настройки', hint: 'День и ночь' },
-    family: { label: 'Семья', hint: 'Люди и код' },
+    family: { label: 'Семья', hint: 'Код приглашения' },
     history: { label: 'История', hint: 'Прошлые дни' },
   },
   uk: {

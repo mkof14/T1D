@@ -94,8 +94,8 @@ export const HOME_TERMS: Record<Language, {
   step2: string;
   step3: string;
 }> = {
-  en: { childRole: 'Child', parentRole: 'Parent', supportRole: 'Support adult', step1: '1. A gentle nudge', step2: '2. A quiet check-in', step3: '3. Someone you trust joins in' },
-  ru: { childRole: 'Ребёнок', parentRole: 'Родитель', supportRole: 'Близкий взрослый', step1: '1. Мягкое напоминание', step2: '2. Спокойная проверка', step3: '3. Подключается близкий человек' },
+  en: { childRole: 'Child', parentRole: 'Parent', supportRole: 'Support adult', step1: 'Alert to parent first', step2: 'Quiet check-in if needed', step3: 'Backup adult joins' },
+  ru: { childRole: 'Ребёнок', parentRole: 'Родитель', supportRole: 'Близкий взрослый', step1: 'Сначала сигнал родителю', step2: 'Спокойная повторная проверка', step3: 'Подключается резервный взрослый' },
   uk: { childRole: 'Дитина', parentRole: 'Батьки', supportRole: 'Дорослий Для Підтримки', step1: '1. Сигнал', step2: '2. Повторна Перевірка', step3: '3. Виклик Підтримки' },
   es: { childRole: 'Niño', parentRole: 'Padre O Madre', supportRole: 'Adulto De Apoyo', step1: '1. Aviso', step2: '2. Revisar De Nuevo', step3: '3. Pedir Apoyo' },
   fr: { childRole: 'Enfant', parentRole: 'Parent', supportRole: 'Adulte De Soutien', step1: '1. Alerte', step2: '2. Reverification', step3: '3. Appeler Du Renfort' },
@@ -240,20 +240,20 @@ export const PUBLIC_MICROCOPY: Record<Language, {
   limitsIntro: string;
 }> = {
   en: {
-    homeSubtitle: 'Understand what changed, who can help, and what to do next — without stress.',
-    homeNote: 'Made for children, parents, and adults who support each other.',
-    systemIntro: 'Steady reads your device data and turns it into a simple, human picture of what matters now.',
-    nightIntro: 'At night, Steady stays closer — with calm alerts, not alarm overload.',
-    familyIntro: 'Everyone in the family sees the same gentle picture and knows who is responding.',
-    limitsIntro: 'Steady supports your daily life. It does not replace your doctor or your devices.',
+    homeSubtitle: 'Connect Dexcom. If glucose drops at night, the right person gets a calm alert — not an alarm flood.',
+    homeNote: '',
+    systemIntro: 'CGM data becomes one simple picture: what matters now and what to do next.',
+    nightIntro: 'Night alerts stay calm. Backup joins in if needed.',
+    familyIntro: 'Parent, child, and backup adult see the same picture and who is responding.',
+    limitsIntro: 'Not a medical device. Does not replace your doctor or CGM.',
   },
   ru: {
-    homeSubtitle: 'Понять, что изменилось, кто рядом и что делать дальше — без лишнего напряжения.',
-    homeNote: 'Для детей, родителей и взрослых, которые поддерживают друг друга.',
-    systemIntro: 'Steady читает данные с устройства и показывает простую, человеческую картину того, что важно сейчас.',
-    nightIntro: 'Ночью Steady остаётся ближе — с мягкими напоминаниями, а не лавиной тревог.',
-    familyIntro: 'Вся семья видит одну спокойную картину и понимает, кто сейчас отвечает.',
-    limitsIntro: 'Steady поддерживает повседневную жизнь. Он не заменяет врача и ваши устройства.',
+    homeSubtitle: 'Подключите Dexcom. Если ночью падает сахар — нужный человек получит спокойное уведомление, без лавины тревог.',
+    homeNote: '',
+    systemIntro: 'Данные CGM — одна простая картина: что важно сейчас и что делать дальше.',
+    nightIntro: 'Ночные сигналы остаются спокойными. Резерв подключается, если нужно.',
+    familyIntro: 'Родитель, ребёнок и резервный взрослый видят одну картину и кто отвечает.',
+    limitsIntro: 'Не медицинское устройство. Не заменяет врача и CGM.',
   },
   uk: {
     homeSubtitle: 'Зрозуміти, що змінилося, хто поруч і що робити далі — без зайвого стресу.',
@@ -354,25 +354,24 @@ export const COPY: Record<Language, Copy> = {
       account: 'Account',
     },
     hero: {
-      eyebrow: 'Separate paths for type 1 and type 2 diabetes',
-      title: 'Calm support, together — day and night.',
-      subtitle: 'Steady helps children, parents, and adults understand what is happening and feel less alone when glucose changes.',
+      eyebrow: 'CGM alerts for families',
+      title: 'CGM alerts. Family knows. One next step.',
+      subtitle: 'Connect Dexcom. Calm alerts when glucose changes — especially at night.',
       primary: 'Get started',
       secondary: 'See how it helps',
-      note: 'Gentle alerts. A clear next step. No clutter.',
+      note: 'Not a medical device.',
     },
     principle: {
       title: 'Our approach',
-      body: 'Keep nights calm and days understandable.',
+      body: 'Calm nights. Clear next step.',
     },
     product: {
-      title: 'What families get',
-      body: 'A gentle picture of now, a clear next step, and room to breathe.',
+      title: 'What you get',
+      body: 'One picture now, one step next.',
       points: [
-        'A calmer view at night.',
-        'One shared picture for child, parent, and support adult.',
-        'One clear next step when things feel risky.',
-        'A short, kind morning recap.',
+        'Dexcom CGM — one clear picture now.',
+        'Calm alert to parent, backup if needed.',
+        'Everyone sees who is responding.',
       ],
     },
     architecture: {
@@ -476,25 +475,24 @@ export const COPY: Record<Language, Copy> = {
       account: 'Аккаунт',
     },
     hero: {
-      eyebrow: 'Отдельные пути для диабета 1 и 2 типа',
-      title: 'Спокойная поддержка вместе — днём и ночью.',
-      subtitle: 'Steady помогает детям, родителям и взрослым понимать, что происходит, и чувствовать себя спокойнее, когда меняется сахар.',
+      eyebrow: 'CGM-сигналы для семьи',
+      title: 'Сигнал CGM. Семья знает. Один шаг.',
+      subtitle: 'Подключите Dexcom. Спокойные сигналы, когда меняется сахар — особенно ночью.',
       primary: 'Начать',
-      secondary: 'Как это помогает',
-      note: 'Мягкие напоминания. Понятный следующий шаг. Без лишнего.',
+      secondary: 'Как это работает',
+      note: 'Не медицинское устройство.',
     },
     principle: {
       title: 'Наш подход',
-      body: 'Спокойная ночь и понятный день.',
+      body: 'Спокойная ночь. Понятный шаг.',
     },
     product: {
-      title: 'Что получает семья',
-      body: 'Мягкая картина сейчас, понятный следующий шаг и место, чтобы выдохнуть.',
+      title: 'Что вы получаете',
+      body: 'Одна картина сейчас, один шаг дальше.',
       points: [
-        'Спокойнее ночью.',
-        'Одна общая картина для ребёнка, родителя и близкого взрослого.',
-        'Один понятный шаг, когда становится тревожно.',
-        'Короткий добрый утренний итог.',
+        'Dexcom CGM — одна ясная картина сейчас.',
+        'Спокойный сигнал родителю, резерв при необходимости.',
+        'Все видят, кто отвечает.',
       ],
     },
     architecture: {
@@ -1692,7 +1690,7 @@ export const COPY: Record<Language, Copy> = {
   },
   };
 
-export const pageOrder: CorePage[] = ['home', 'system', 'night', 'family'];
+export const pageOrder: CorePage[] = ['home'];
 
 const normalizeBasePath = (basePath?: string) => {
   if (!basePath || basePath === '/') return '';

@@ -217,7 +217,7 @@ export const ConnectionPanel: React.FC<ConnectionPanelProps> = ({
               <p className={softLabelClass}>{copy.lastReading}</p>
               <p className="mt-1 text-sm font-semibold">{deviceStatus?.lastSync || dexcom?.lastPollAt || '—'}</p>
               {dexcom?.latestTrend ? (
-                <p className="mt-1 text-xs font-semibold opacity-80">{trendLabel}</p>
+                <p className="mt-1 text-sm font-semibold">{trendLabel}</p>
               ) : null}
             </div>
           </div>

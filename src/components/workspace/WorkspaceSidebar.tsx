@@ -1,30 +1,9 @@
 import React from 'react';
-import {
-  Activity,
-  BellRing,
-  Clock3,
-  History,
-  Radio,
-  Settings2,
-  Users,
-  UtensilsCrossed,
-} from 'lucide-react';
 import type { DiabetesType, Language } from '../../types';
 import type { T1DTheme } from '../../lib/t1d-ui';
 import { resolveWorkspaceNav } from '../../lib/workspace-content';
 import { workspaceNavTypeClass } from '../../lib/diabetes-type-theme';
 import { WORKSPACE_SECTION_ORDER, type WorkspaceSectionId } from '../../content/workspace-nav-copy';
-
-const SECTION_ICON: Record<WorkspaceSectionId, React.ComponentType<{ size?: number; className?: string }>> = {
-  now: Activity,
-  nutrition: UtensilsCrossed,
-  timeline: Clock3,
-  system: Radio,
-  alerts: BellRing,
-  settings: Settings2,
-  family: Users,
-  history: History,
-};
 
 export type WorkspaceSidebarProps = {
   active: WorkspaceSectionId;
@@ -51,11 +30,10 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
   return (
     <nav
       className={`t1d-workspace-nav ${tone} ${workspaceNavTypeClass(diabetesType)} ${horizontal ? 't1d-workspace-nav--horizontal' : ''} ${isRTL ? 't1d-workspace-nav--rtl' : ''}`}
-      aria-label={lang === 'ru' ? 'Разделы рабочего пространства' : 'Workspace sections'}
+      aria-label={lang === 'ru' ? 'Разделы' : 'Sections'}
     >
       <div className="t1d-workspace-nav__list">
         {WORKSPACE_SECTION_ORDER.map((sectionId) => {
-          const Icon = SECTION_ICON[sectionId];
           const selected = active === sectionId;
           const item = nav[sectionId];
           return (
@@ -66,10 +44,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
               onClick={() => onSelect(sectionId)}
               className={`t1d-workspace-nav__item ${selected ? 't1d-workspace-nav__item--active' : ''}`}
             >
-              <span className="t1d-workspace-nav__icon" aria-hidden="true">
-                <Icon size={17} />
-              </span>
-              <span className="t1d-workspace-nav__copy">
+              <span className="t1d-workspace-nav__text">
                 <span className="t1d-workspace-nav__label">{item.label}</span>
                 <span className="t1d-workspace-nav__hint">{item.hint}</span>
               </span>

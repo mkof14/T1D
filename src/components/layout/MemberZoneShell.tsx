@@ -5,7 +5,6 @@ import { memberLayoutTypeClass, memberShellTypeClass, typeAccentBarClass } from 
 import { T1DPageBackdrop } from './T1DPageBackdrop';
 import { T1DFooter } from './T1DFooter';
 import { T1DTopbar } from './T1DTopbar';
-import { DiabetesTypeRibbon } from './DiabetesTypeRibbon';
 import type { T1DTheme } from '../../lib/t1d-ui';
 
 interface MemberZoneShellProps {
@@ -49,7 +48,6 @@ export const MemberZoneShell: React.FC<MemberZoneShellProps> = ({
     <div dir={isRTL ? 'rtl' : 'ltr'} className={`min-h-screen w-full relative flex flex-col ${shellTone} ${memberShellTypeClass(diabetesType)} ${isRTL ? 'text-right' : 'text-left'}`}>
       <T1DPageBackdrop theme={theme} diabetesType={diabetesType} />
       <div className={typeAccentBarClass(diabetesType, theme)} />
-      {diabetesType ? <DiabetesTypeRibbon lang={lang} theme={theme} diabetesType={diabetesType} isRTL={isRTL} /> : null}
       <T1DTopbar
         lang={lang}
         theme={theme}

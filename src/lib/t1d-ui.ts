@@ -13,6 +13,11 @@ export const t1dEyebrow = (theme: T1DTheme) =>
 export const t1dSoftLabel = (theme: T1DTheme) =>
   theme === 'dark' ? 't1d-soft-label t1d-soft-label--dark' : 't1d-soft-label t1d-soft-label--light';
 
+export const t1dCardHeading = () => 't1d-card-heading';
+
+export const t1dHelpText = (theme: T1DTheme) =>
+  theme === 'dark' ? 't1d-help-text t1d-help-text--dark' : 't1d-help-text t1d-help-text--light';
+
 export const t1dDisplayTitle = () => 't1d-display text-3xl font-extrabold tracking-tight md:text-4xl';
 
 export const t1dIconWell = (theme: T1DTheme) =>

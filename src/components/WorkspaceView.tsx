@@ -9,7 +9,6 @@ import { getRoleLabels } from '../lib/role-labels';
 import {
   resolveFailStateHints,
   resolvePreferenceExplainer,
-  resolveRoleFocus,
   resolveWorkspaceCopy,
   resolveWorkspaceInviteCopy,
   resolveWorkspaceSectionHeaders,
@@ -17,7 +16,6 @@ import {
 import { ACTION_LABELS } from '../content/action-labels';
 import type { ActionId } from '../lib/api';
 import { t1dBtnPrimary, t1dBtnSecondary, t1dEyebrow, t1dMemberLayout, t1dPanelCompact, t1dPanelCompactSurface, t1dPanelPrimary, t1dPanelSubtle, t1dPanelSurface, t1dSoftLabel } from '../lib/t1d-ui';
-import { PageHeroBanner } from './layout/PageHeroBanner';
 import { MemberZoneShell } from './layout/MemberZoneShell';
 import { ConnectionPanel } from './workspace/ConnectionPanel';
 import { FoodAnalysisPanel } from './workspace/FoodAnalysisPanel';
@@ -504,7 +502,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       >
         <div className={`${t1dMemberLayout()} relative`}>
           <div className={`${t1dPanelPrimary(theme)} ${isRTL ? 'text-right' : 'text-left'}`}>
-            <p className={`${t1dEyebrow(theme)} mb-3`}>{copy.eyebrow}</p>
             <p className="text-lg font-black tracking-tight">{copy.currentState}</p>
           </div>
         </div>
@@ -517,7 +514,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const deviceStatus = workspace.deviceStatus;
   const dexcom = workspace.dexcomConnection;
   const morningSummary = workspace.morningSummary;
-  const focus = resolveRoleFocus(lang, household.diabetesType, user.role);
   const preferenceExplainer = resolvePreferenceExplainer(lang, household.diabetesType, preferenceCopy.explainer);
   const selectedSession: SessionDetail | null =
     workspace.dailyHistory.find((entry) => entry.id === selectedSessionId) || workspace.selectedSession || null;
@@ -751,18 +747,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         onSignUp={onSignUp}
       >
         <div className={`${t1dMemberLayout()} ${memberLayoutTypeClass(household.diabetesType)} relative`}>
-        <PageHeroBanner
-          variant="workspace"
-          theme={theme}
-          isRTL={isRTL}
-          compact
-          bleed={false}
-          diabetesType={household.diabetesType}
-          eyebrow={copy.eyebrow}
-          title={`${copy.welcome}, ${user.fullName || user.email}`}
-          subtitle={focus.body}
-        />
-
         <WorkspaceBetaBanner lang={lang} theme={theme} isRTL={isRTL} />
 
         <div className={`t1d-workspace-shell ${workspaceShellTypeClass(household.diabetesType)} ${isRTL ? 't1d-workspace-shell--rtl' : ''}`}>
@@ -782,7 +766,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             ) : null}
             {activeSection === 'now' ? (
           <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
-            <WorkspaceSectionHeader title={sectionHeaders.now.title} subtitle={sectionHeaders.now.subtitle} theme={theme} isRTL={isRTL} />
             <GlucoseNowDashboard
               lang={lang}
               theme={theme}
@@ -806,18 +789,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               theme={theme}
               isRTL={isRTL}
               diabetesType={household.diabetesType}
-              glucoseUnit={glucoseUnit}
               currentState={currentState}
               contextualSummary={contextualSummary}
               dailyGuidance={dailyGuidance}
               householdReadiness={householdReadiness}
-              nutrition={nutrition}
-              preferences={preferences}
               guidanceLabels={guidanceCopy}
               readinessLabels={readinessCopy}
-              summaryLabels={summaryCopy}
-              modeLabels={{ day: labels.day, night: labels.night }}
-              currentStateLabel={copy.stateLabels[currentState.level]}
             />
             {nutrition?.insight ? (
               <button
@@ -825,13 +802,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onClick={() => setActiveSection('nutrition')}
                 className={`mt-5 w-full rounded-2xl border p-4 text-left transition ${theme === 'dark' ? 'border-emerald-500/30 bg-emerald-500/10 hover:border-emerald-400/50' : 'border-emerald-200 bg-emerald-50/90 hover:border-emerald-300'}`}
               >
-                <p className={softLabelClass}>{nowCopy.latestMeal}</p>
-                <p className="mt-2 text-sm font-bold">{nutrition.insight.headline}</p>
-                <p className="mt-1 text-sm leading-relaxed opacity-80">{nutrition.insight.detail}</p>
+                <p className="text-base font-bold">{nutrition.insight.headline}</p>
+                <p className="mt-2 text-base leading-relaxed">{nutrition.insight.detail}</p>
               </button>
             ) : null}
             <div className={`mt-5 border-t pt-5 ${theme === 'dark' ? 'border-slate-800' : 'border-orange-100'}`}>
-              <p className={sectionEyebrowClass}>{copy.quickActions}</p>
+              <p className="mb-3 text-sm font-bold">{copy.quickActions}</p>
               {(currentState.level === 'watch' || currentState.level === 'risk') ? (
                 <button
                   type="button"
@@ -928,7 +904,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <WorkspaceSectionHeader title={sectionHeaders.settings.title} subtitle={sectionHeaders.settings.subtitle} theme={theme} isRTL={isRTL} />
             {preferences ? (
               <>
-                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{preferenceExplainer}</p>
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">{preferenceExplainer}</p>
                 <div className="mt-5 grid max-w-lg gap-4">
                   <label className="space-y-2">
                     <span className={softLabelClass}>{glucoseCopy.unitField}</span>
@@ -944,7 +920,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       <option value="mmol/L">{glucoseUnitOptionLabel(lang, 'mmol/L')}</option>
                       <option value="mg/dL">{glucoseUnitOptionLabel(lang, 'mg/dL')}</option>
                     </select>
-                    <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{glucoseCopy.unitHint}</p>
+                    <p className="text-sm font-semibold leading-relaxed text-slate-600 dark:text-slate-300">{glucoseCopy.unitHint}</p>
                   </label>
                   <label className="space-y-2">
                     <span className={softLabelClass}>{preferenceCopy.fields.day}</span>
@@ -974,7 +950,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             {activeSection === 'alerts' && notificationSummary && preferences ? (
               <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
                 <WorkspaceSectionHeader title={sectionHeaders.alerts.title} subtitle={sectionHeaders.alerts.subtitle} theme={theme} isRTL={isRTL} />
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.explainer}</p>
+                <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">{notificationCopy.explainer}</p>
                 {deliveryStatusLabel ? (
                   <AlertFlowDiagram
                     lang={lang}
@@ -1048,8 +1024,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <div className={`mt-5 ${compactCardClass}`}>
               <p className={softLabelClass}>{nowCopy.yesterdayGlance}</p>
               <p className="mt-2 text-base font-bold leading-relaxed">{morningSummary.headline}</p>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{morningSummary.outcome}</p>
-              <p className="mt-3 text-xs font-semibold opacity-75">{copy.responders}: {morningSummary.responders.join(', ')}</p>
+              <p className="mt-3 text-base leading-relaxed text-slate-600 dark:text-slate-300">{morningSummary.outcome}</p>
+              <p className="mt-3 text-sm font-semibold">{copy.responders}: {morningSummary.responders.join(', ')}</p>
             </div>
             {workspace.dailyHistory.length === 0 ? (
               <div className={`mt-5 rounded-[1.2rem] border p-4 md:rounded-[1.35rem] ${theme === 'dark' ? 'border-slate-800 bg-slate-900/70 text-slate-300' : 'border-slate-200 bg-slate-50/90 text-slate-600'}`}>

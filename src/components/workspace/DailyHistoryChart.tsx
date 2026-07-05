@@ -47,7 +47,7 @@ export const DailyHistoryChart: React.FC<DailyHistoryChartProps> = ({
       <div className={`flex flex-wrap items-end justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
         <div>
           <p className={softLabelClass}>{copy.dayChart}</p>
-          <p className="mt-1 text-xs font-semibold opacity-70">
+          <p className="mt-1 text-sm font-semibold">
             {diabetesType === 'type2' ? glucoseCopy.type2Target : glucoseCopy.type1Target}
           </p>
         </div>
