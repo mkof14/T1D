@@ -20,7 +20,8 @@
     "smoke:deploy": "node scripts/post-deploy-smoke.mjs",
     "verify:prod": "node scripts/verify-production-env.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
-    "db:migrate": "node -e \"import('./server/infrastructure/db.mjs').then(m => m.runMigrations()).then(console.log)\""
+    "db:migrate": "node -e \"import('./server/infrastructure/db.mjs').then(m => m.runMigrations()).then(console.log)\"",
+    "db:backfill": "node scripts/backfill-kv-to-sql.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.575.0",

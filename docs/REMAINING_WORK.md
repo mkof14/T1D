@@ -8,6 +8,8 @@ Updated: 2026-07-05
 - **Frontend timeline** wired to `GET /api/timeline/me` via `EventTimeline.tsx`
 - **Alert actions** in timeline UI: acknowledge, take ownership, resolve
 - **Dual-write skeleton** for `glucose_readings` in `server/infrastructure/repositories/glucose-reading-repository.mjs`
+- **Dual-write on Dexcom poll** via `dual-write-service.mjs` (household upsert + new readings)
+- **Backfill script:** `npm run db:backfill` (`scripts/backfill-kv-to-sql.mjs`)
 - **Tests:** timeline API integration + repository unit tests (run `npm run test:unit`)
 
 ## Completed without you (prior passes)
@@ -44,8 +46,7 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 | Phase | Task |
 |-------|------|
-| **B** | Wire `insertGlucoseReadings` into Dexcom poll path (dual-write on each new reading) |
-| **C** | Backfill script: KV households → SQL tables |
+| **C** | Run `npm run db:backfill` on production after verifying household rows |
 | **2** | Extract auth/household/dexcom routes from `server/index.mjs` |
 
 ---

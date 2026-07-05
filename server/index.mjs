@@ -53,6 +53,7 @@ import {
 } from './nutrition-service.mjs';
 import { handleAlertTimelineRoutes } from './app/routes/alert-timeline.routes.mjs';
 import { ALERT_RULE_VERSION } from './domain/alerts/alert-rules.mjs';
+import { dualWritePollReadings } from './infrastructure/repositories/dual-write-service.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -302,6 +303,7 @@ const shouldRunBackgroundDexcomPoll = (household) => {
 };
 
 const applyDexcomPollToHousehold = async (household, source = 'manual') => {
+  const previousReadings = ensureDexcomConnection(household).readings || [];
   const nextDexcom = dexcomEnvConfig().useLiveMode
     ? await pollDexcomLive(household)
     : pollDexcom(household);
@@ -320,6 +322,14 @@ const applyDexcomPollToHousehold = async (household, source = 'manual') => {
   });
 
   const { household: alertedHousehold } = applyAlertEvaluation(polledHousehold);
+  const dualWriteResult = await dualWritePollReadings(
+    alertedHousehold,
+    previousReadings,
+    ensureDexcomConnection(alertedHousehold).readings || [],
+  );
+  if (!dualWriteResult.ok && !dualWriteResult.skipped) {
+    console.warn('[t1d-api] glucose dual-write failed', dualWriteResult.error);
+  }
   return alertedHousehold;
 };
 

@@ -6,11 +6,7 @@ const insertSql = `
   ON CONFLICT (id) DO NOTHING
 `;
 
-/**
- * Phase B dual-write skeleton: persist immutable readings to Postgres when available.
- * KV/household JSON remains the source of truth until Phase D.
- */
-export const insertGlucoseReading = async ({
+export const insertGlucoseReadingWithPool = async (pool, {
   id,
   householdId,
   patientId = null,
@@ -19,7 +15,29 @@ export const insertGlucoseReading = async ({
   glucoseMgDl,
   trend = 'unknown',
 }) => {
-  if (!id || !householdId || !recordedAt || glucoseMgDl == null) {
+  if (!pool || !id || !householdId || !recordedAt || glucoseMgDl == null) {
+    return { ok: false, skipped: true, inserted: false, reason: 'missing_fields' };
+  }
+
+  const result = await pool.query(insertSql, [
+    id,
+    householdId,
+    patientId,
+    source,
+    recordedAt,
+    glucoseMgDl,
+    trend,
+  ]);
+
+  return { ok: true, skipped: false, inserted: (result.rowCount || 0) > 0 };
+};
+
+/**
+ * Phase B dual-write: persist immutable readings to Postgres when available.
+ * KV/household JSON remains the source of truth until Phase D.
+ */
+export const insertGlucoseReading = async (payload) => {
+  if (!payload?.id || !payload?.householdId || !payload?.recordedAt || payload.glucoseMgDl == null) {
     return { ok: false, skipped: true, reason: 'missing_fields' };
   }
 
@@ -29,16 +47,8 @@ export const insertGlucoseReading = async ({
   }
 
   try {
-    await pool.query(insertSql, [
-      id,
-      householdId,
-      patientId,
-      source,
-      recordedAt,
-      glucoseMgDl,
-      trend,
-    ]);
-    return { ok: true, skipped: false };
+    const result = await insertGlucoseReadingWithPool(pool, payload);
+    return { ok: result.ok, skipped: result.skipped, inserted: result.inserted };
   } catch (error) {
     return { ok: false, skipped: false, error: error?.message || 'insert_failed' };
   } finally {
@@ -47,9 +57,16 @@ export const insertGlucoseReading = async ({
 };
 
 export const insertGlucoseReadings = async (readings = []) => {
-  const results = [];
-  for (const reading of readings) {
-    results.push(await insertGlucoseReading(reading));
+  const pool = await getPool();
+  if (!pool) {
+    return readings.map(() => ({ ok: false, skipped: true, reason: 'DATABASE_URL not set' }));
   }
-  return results;
+
+  try {
+    return Promise.all(readings.map((reading) => insertGlucoseReadingWithPool(pool, reading)));
+  } catch (error) {
+    return [{ ok: false, skipped: false, error: error?.message || 'insert_failed' }];
+  } finally {
+    await pool.end();
+  }
 };
