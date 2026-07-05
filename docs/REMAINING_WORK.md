@@ -1,18 +1,20 @@
-# Remaining Work — After Autonomous Pass #2
+# Remaining Work — After Autonomous Pass #3
 
 Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
-- **Git:** all hardening + UX changes ready to commit
+- **Migration 001** applied locally to Neon (`npm run db:migrate`)
+- **Frontend timeline** wired to `GET /api/timeline/me` via `EventTimeline.tsx`
+- **Alert actions** in timeline UI: acknowledge, take ownership, resolve
+- **Dual-write skeleton** for `glucose_readings` in `server/infrastructure/repositories/glucose-reading-repository.mjs`
+- **Tests:** timeline API integration + repository unit tests (run `npm run test:unit`)
+
+## Completed without you (prior passes)
+
+- **Git:** all hardening + UX changes committed
 - **Beta/medical banner** in workspace (11 languages, dismissible)
-- **Error boundary i18n** (11 languages)
-- **Branding:** loading screen → "Steady"
-- **SEO:** `og-image.png` 1200×630, `lastmod` in sitemap, hreflang alternate links
-- **Sentry:** release tag `steady@1.1.0` on CDN init
-- **PWA:** SW update detection + `applySwUpdate()` API
-- **Docs:** `DATA_RETENTION.md`
-- **Vercel sync:** preserves `T1D_CRON_SECRET` from `.env.local`; sets `T1D_SECRETS_KEY`
+- **Production architecture:** domain modules, timeline API, migrations (`91b6190`)
 - **Production:** deployed with `storage: postgres`
 
 ---
@@ -35,6 +37,16 @@ https://t1-d.vercel.app/api/access/google/callback
 
 ### 4. Upstash (verify)
 Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limits look wrong.
+
+---
+
+## Next engineering (no account needed)
+
+| Phase | Task |
+|-------|------|
+| **B** | Wire `insertGlucoseReadings` into Dexcom poll path (dual-write on each new reading) |
+| **C** | Backfill script: KV households → SQL tables |
+| **2** | Extract auth/household/dexcom routes from `server/index.mjs` |
 
 ---
 

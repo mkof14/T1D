@@ -563,3 +563,76 @@ export async function submitFeedback(body: { message: string; rating?: number })
   });
   return readJson<{ ok: boolean }>(res);
 }
+
+export type ResponderState =
+  | 'no_responder'
+  | 'notified'
+  | 'acknowledged'
+  | 'active_responder'
+  | 'escalated'
+  | 'resolved'
+  | 'expired';
+
+export interface WatchdogSnapshot {
+  lastSuccessfulSync: string;
+  lastReadingTimestamp: string;
+  readingAgeMinutes: number | null;
+  tokenStatus: string;
+  refreshFailureCount: number;
+  deviceConnectionStatus: string;
+  workerHeartbeat: string;
+  staleDataFlag: boolean;
+  workerState: string;
+}
+
+export interface PatientTimelineEntry {
+  id: string;
+  type: string;
+  timestamp: string;
+  title: string;
+  detail: string;
+  status?: string;
+  actor?: string;
+  alertId?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface PatientTimelinePayload {
+  patientId: string;
+  householdId: string;
+  childName: string;
+  ruleVersion: string;
+  responderState: ResponderState;
+  watchdog: WatchdogSnapshot;
+  entries: PatientTimelineEntry[];
+}
+
+export async function getPatientTimeline(patientId = 'me') {
+  const res = await fetch(`/api/timeline/${encodeURIComponent(patientId)}`, {
+    credentials: 'include',
+    headers: langHeaders(),
+  });
+  return readJson<PatientTimelinePayload>(res);
+}
+
+async function postAlertAction(alertId: string, action: 'acknowledge' | 'take-ownership' | 'resolve') {
+  const res = await fetch(`/api/alerts/${encodeURIComponent(alertId)}/${action}`, {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify({ alertId }),
+  });
+  return readJson<{ ok: boolean; alertId: string; responderState?: string }>(res);
+}
+
+export async function acknowledgeAlert(alertId: string) {
+  return postAlertAction(alertId, 'acknowledge');
+}
+
+export async function takeAlertOwnership(alertId: string) {
+  return postAlertAction(alertId, 'take-ownership');
+}
+
+export async function resolveAlert(alertId: string) {
+  return postAlertAction(alertId, 'resolve');
+}

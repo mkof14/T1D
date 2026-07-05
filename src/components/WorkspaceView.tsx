@@ -34,6 +34,7 @@ import { GlucoseNowDashboard } from './workspace/GlucoseNowDashboard';
 import { WorkspaceNowPanel } from './workspace/WorkspaceNowPanel';
 import { WorkspaceBetaBanner } from './workspace/WorkspaceBetaBanner';
 import { AlertFlowDiagram } from './workspace/AlertFlowDiagram';
+import { EventTimeline } from './workspace/EventTimeline';
 import { DailyHistoryChart } from './workspace/DailyHistoryChart';
 import { WORKSPACE_NOW_COPY } from '../content/workspace-now-copy';
 import { WORKSPACE_VISUAL_COPY } from '../content/workspace-visual-copy';
@@ -60,6 +61,7 @@ interface WorkspaceViewProps {
   onDexcomDisconnect: () => Promise<void>;
   onDexcomPoll: () => Promise<void>;
   onNutritionAnalyze: (payload: { imageBase64?: string; note?: string }) => Promise<void>;
+  onWorkspaceRefresh?: () => Promise<void>;
 }
 
 const STATE_TONE: Record<CurrentStatePayload['level'], string> = {
@@ -437,7 +439,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   onBackToPublic,
   onSignUp,
   workspace,
-  onAction, onPreferencesSave, onDexcomConnect, onDexcomOAuthStart, onDexcomOAuthFinish, onDexcomTokenRefresh, onDexcomDisconnect, onDexcomPoll, onNutritionAnalyze }) => {
+  onAction, onPreferencesSave, onDexcomConnect, onDexcomOAuthStart, onDexcomOAuthFinish, onDexcomTokenRefresh, onDexcomDisconnect, onDexcomPoll, onNutritionAnalyze, onWorkspaceRefresh }) => {
   const diabetesType = workspace?.household?.diabetesType ?? readSignupDiabetesType() ?? 'type1';
   const memberCopy = MEMBER_CHROME_COPY[lang];
   const copy = resolveWorkspaceCopy(lang, diabetesType);
@@ -908,19 +910,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             {activeSection === 'timeline' ? (
           <section className={`${primaryPanelClass} ${workspaceSectionShell} ${isRTL ? 'text-right' : 'text-left'}`}>
             <WorkspaceSectionHeader title={sectionHeaders.timeline.title} subtitle={sectionHeaders.timeline.subtitle} theme={theme} isRTL={isRTL} />
-            <div className="mt-5 space-y-4">
-              {workspace.timeline.map((item) => (
-                <div key={item.id} className={compactCardClass}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[15px] font-black tracking-tight md:text-base">{item.step}</p>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
-                      {copy.timelineStatus[item.status]}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{item.actor} · {item.time}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.detail}</p>
-                </div>
-              ))}
+            <div className="mt-5">
+              <EventTimeline
+                lang={lang}
+                theme={theme}
+                isRTL={isRTL}
+                user={user}
+                compactCardClass={compactCardClass}
+                onWorkspaceRefresh={onWorkspaceRefresh}
+              />
             </div>
           </section>
             ) : null}

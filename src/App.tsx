@@ -474,6 +474,11 @@ const App: React.FC = () => {
     );
   }
 
+  const handleWorkspaceRefresh = async () => {
+    const nextWorkspace = await getWorkspace();
+    setWorkspace(nextWorkspace);
+  };
+
   if (route === 'workspace' && session) {
     return (
       <AppShell lang={lang}>
@@ -488,7 +493,7 @@ const App: React.FC = () => {
             workspace={workspace}
             onBackToPublic={() => setRoute('public')}
             onSignUp={beginSignup}
-            onAction={handleDoneAction} onPreferencesSave={handlePreferencesSave} onDexcomConnect={handleDexcomConnect} onDexcomOAuthStart={handleDexcomOAuthStart} onDexcomOAuthFinish={handleDexcomOAuthFinish} onDexcomTokenRefresh={handleDexcomTokenRefresh} onDexcomDisconnect={handleDexcomDisconnect} onDexcomPoll={handleDexcomPoll} onNutritionAnalyze={handleNutritionAnalyze} />
+            onAction={handleDoneAction} onPreferencesSave={handlePreferencesSave} onDexcomConnect={handleDexcomConnect} onDexcomOAuthStart={handleDexcomOAuthStart} onDexcomOAuthFinish={handleDexcomOAuthFinish} onDexcomTokenRefresh={handleDexcomTokenRefresh} onDexcomDisconnect={handleDexcomDisconnect} onDexcomPoll={handleDexcomPoll} onNutritionAnalyze={handleNutritionAnalyze} onWorkspaceRefresh={handleWorkspaceRefresh} />
         </Suspense>
       </AppShell>
     );
