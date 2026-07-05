@@ -5,16 +5,13 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  actionForDone,
   actionSetByRole,
-  applySafetyAction,
   createDefaultSafetyState,
   currentStateForRole,
   deviceStatusForStage,
   ensureSafetyState,
   notificationFeedForStage,
   notificationSummaryForStage,
-  operatingMode,
   timelineForStage,
 } from './state-machine.mjs';
 import {
@@ -31,19 +28,16 @@ import { applyAlertEvaluation } from './alert-engine.mjs';
 import { createRateLimiter, clientIp, isUpstashRateLimitEnabled } from './rate-limit.mjs';
 import { requestLang, t } from './backend-i18n.mjs';
 import { localizeWorkspacePayload } from './workspace-i18n.mjs';
-import { appendAuditEvent } from './audit-log.mjs';
 import { applySecurityHeaders } from './security-headers.mjs';
 import { attachRequestContext } from './request-context.mjs';
 import { defaultSafetyPreferences, normalizeDiabetesType } from './diabetes-type.mjs';
-import {
-  analyzeMealInput,
-  appendMealToHousehold,
-  buildNutritionPayload,
-} from './nutrition-service.mjs';
+import { buildNutritionPayload } from './nutrition-service.mjs';
 import { handleAlertTimelineRoutes } from './app/routes/alert-timeline.routes.mjs';
 import { handleAuthRoutes } from './app/routes/auth.routes.mjs';
 import { handleHouseholdRoutes } from './app/routes/household.routes.mjs';
 import { handleDexcomRoutes } from './app/routes/dexcom.routes.mjs';
+import { handleWorkspaceRoutes } from './app/routes/workspace.routes.mjs';
+import { handleFeedbackRoutes } from './app/routes/feedback.routes.mjs';
 import { ALERT_RULE_VERSION } from './domain/alerts/alert-rules.mjs';
 import { dualWritePollReadings } from './infrastructure/repositories/dual-write-service.mjs';
 
@@ -1038,6 +1032,12 @@ const buildRouteContext = (req, res, url, lang) => ({
   createOAuthState,
   appendDexcomAudit,
   applyDexcomPollToHousehold,
+  feedbackRateLimit,
+  DATA_DIR,
+  FEEDBACK_FILE,
+  SUPPORT_ACTIONS,
+  readJson,
+  writeJson,
 });
 
 export const handleRequest = async (req, res) => {
@@ -1110,152 +1110,8 @@ export const handleRequest = async (req, res) => {
   if (await handleDexcomRoutes(routeCtx)) return;
   if (await handleAuthRoutes(routeCtx)) return;
   if (await handleHouseholdRoutes(routeCtx)) return;
-
-  if (req.method === 'POST' && url.pathname === '/api/nutrition/analyze') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (!body || typeof body !== 'object') {
-      sendJson(res, 400, { error: 'Invalid request body' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const household = households[householdIndex];
-    const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64.replace(/^data:image\/\w+;base64,/, '') : '';
-    const note = safeText(body.note, 200);
-    if (!imageBase64 && !note) {
-      sendJson(res, 400, { error: 'Add a photo or short description of the meal' });
-      return;
-    }
-
-    const safetyState = ensureSafetyState(household);
-    const currentStateBase = currentStateForRole(current.user.role, household, safetyState, current.user);
-    const dexcom = ensureDexcomConnection(household);
-
-    let meal;
-    try {
-      meal = analyzeMealInput({
-        imageBase64,
-        note,
-        diabetesType: normalizeDiabetesType(household.diabetesType),
-        currentGlucose: dexcom.latestGlucose ?? currentStateBase.glucose,
-        trend: dexcom.latestTrend || currentStateBase.trend || 'flat',
-      });
-    } catch (error) {
-      sendJson(res, 400, { error: error.message || 'Could not analyze meal' });
-      return;
-    }
-
-    const nextHousehold = appendMealToHousehold(household, meal, current.user);
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    await appendAuditEvent(readJson, writeJson, DATA_DIR, {
-      kind: 'nutrition_analyze',
-      userId: current.user.id,
-      householdId: household.id,
-      mealId: meal.id,
-      carbs: meal.macros.carbs,
-    });
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && (url.pathname === '/api/action' || url.pathname === '/api/night-action')) {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (!body || typeof body !== 'object' || !body.action) {
-      sendJson(res, 400, { error: 'Action is required' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const household = households[householdIndex];
-    const requestedAction = safeText(body.action, 80);
-    const normalizedAction =
-      requestedAction === 'DONE'
-        ? actionForDone(current.user.role, operatingMode(), household)
-        : SUPPORT_ACTIONS.has(requestedAction)
-          ? requestedAction
-          : '';
-    if (!normalizedAction) {
-      sendJson(res, 400, { error: 'Unsupported action' });
-      return;
-    }
-    const nextSafetyState = applySafetyAction(current.user, household, normalizedAction);
-    const nextHousehold = {
-      ...household,
-      safetyState: nextSafetyState,
-      updatedAt: new Date().toISOString(),
-    };
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    await appendAuditEvent(readJson, writeJson, DATA_DIR, {
-      kind: 'safety_action',
-      userId: current.user.id,
-      householdId: household.id,
-      action: normalizedAction,
-      stage: nextSafetyState.stage,
-    });
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/feedback') {
-    const limit = await feedbackRateLimit(clientIp(req));
-    if (!limit.allowed) {
-      sendJson(res, 429, { error: t(lang, 'rateLimited') });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (body === BODY_TOO_LARGE) {
-      sendJson(res, 413, { error: 'Request body too large' });
-      return;
-    }
-    const message = safeText(body?.message, 2000);
-    const rating = Math.max(1, Math.min(5, Number(body?.rating || 0) || 0));
-    if (!message) {
-      sendJson(res, 400, { error: 'Message is required' });
-      return;
-    }
-
-    const current = await findSessionUser(req);
-    const data = await readJson(FEEDBACK_FILE, { entries: [] });
-    const entries = Array.isArray(data.entries) ? data.entries : [];
-    entries.unshift({
-      id: randomBytes(8).toString('hex'),
-      time: new Date().toISOString(),
-      message,
-      rating: rating || null,
-      userId: current?.user?.id || '',
-      email: current?.user?.email || safeText(body?.email, 160),
-    });
-    await writeJson(FEEDBACK_FILE, { entries: entries.slice(0, 200) });
-    sendJson(res, 201, { ok: true });
-    return;
-  }
+  if (await handleWorkspaceRoutes(routeCtx)) return;
+  if (await handleFeedbackRoutes(routeCtx)) return;
 
   if (await handleAlertTimelineRoutes({
     req,
