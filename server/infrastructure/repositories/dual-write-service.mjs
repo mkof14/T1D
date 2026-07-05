@@ -2,6 +2,13 @@ import { getPool } from '../db.mjs';
 import { normalizeReading } from '../../domain/glucose/glucose-normalizer.mjs';
 import { ensureHouseholdRow } from './household-repository.mjs';
 import { syncDexcomConnectionRows } from './device-connection-repository.mjs';
+import {
+  insertAcknowledgementRow,
+  insertAlertTransitionRow,
+  resolveAlertRow,
+  upsertAlertRow,
+} from './alert-repository.mjs';
+import { randomBytes } from 'node:crypto';
 import { insertGlucoseReadingWithPool } from './glucose-reading-repository.mjs';
 import { upsertUserRow } from './user-repository.mjs';
 import {
@@ -198,6 +205,98 @@ export const dualWriteRevokeSessionsForUser = async (userId) => {
     return { ok: true, skipped: false };
   } catch (error) {
     return { ok: false, skipped: false, error: error?.message || 'session_revoke_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteAlertCreated = async (household, alertEvent, decision = {}) => {
+  if (!household?.id || !alertEvent?.id) {
+    return { ok: true, skipped: true, reason: 'missing_alert' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await ensureHouseholdRow(pool, household);
+    await upsertAlertRow(pool, {
+      id: alertEvent.id,
+      householdId: household.id,
+      ruleVersion: alertEvent.ruleVersion,
+      level: alertEvent.level,
+      reason: alertEvent.reason,
+      decision: decision?.decision || 'notify',
+      status: 'active',
+      inputSnapshot: decision?.inputs || decision || {},
+    });
+    await insertAlertTransitionRow(pool, {
+      id: randomBytes(8).toString('hex'),
+      alertId: alertEvent.id,
+      fromStatus: 'monitoring',
+      toStatus: 'notified',
+      reasonCode: 'alert_created',
+    });
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'alert_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteAlertResponderAction = async ({ household, user, action, alertId }) => {
+  if (!household?.id || !user?.id || !alertId) {
+    return { ok: true, skipped: true, reason: 'missing_fields' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    const transitionId = randomBytes(8).toString('hex');
+    if (action === 'acknowledge') {
+      await insertAcknowledgementRow(pool, {
+        id: `ack-${randomBytes(6).toString('hex')}`,
+        alertId,
+        userId: user.id,
+      });
+      await insertAlertTransitionRow(pool, {
+        id: transitionId,
+        alertId,
+        fromStatus: 'notified',
+        toStatus: 'acknowledged',
+        actorUserId: user.id,
+        reasonCode: action,
+      });
+    } else if (action === 'take-ownership') {
+      await insertAlertTransitionRow(pool, {
+        id: transitionId,
+        alertId,
+        fromStatus: 'acknowledged',
+        toStatus: 'active_responder',
+        actorUserId: user.id,
+        reasonCode: action,
+      });
+    } else if (action === 'resolve') {
+      await resolveAlertRow(pool, alertId);
+      await insertAlertTransitionRow(pool, {
+        id: transitionId,
+        alertId,
+        fromStatus: 'active_responder',
+        toStatus: 'resolved',
+        actorUserId: user.id,
+        reasonCode: action,
+      });
+    }
+
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'alert_action_dual_write_failed' };
   } finally {
     await pool.end();
   }

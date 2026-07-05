@@ -9,6 +9,7 @@ import {
   findActiveAlertId,
 } from '../../domain/timeline/timeline-service.mjs';
 import { queueInAppNotification } from '../../services/notification-service.mjs';
+import { dualWriteAlertResponderAction } from '../../infrastructure/repositories/dual-write-service.mjs';
 
 export const handleAlertTimelineRoutes = async ({
   req,
@@ -121,6 +122,16 @@ export const handleAlertTimelineRoutes = async ({
       updatedAt: new Date().toISOString(),
     };
     await persistHouseholdUpdate(households, index, nextHousehold);
+    void dualWriteAlertResponderAction({
+      household: nextHousehold,
+      user: current.user,
+      action,
+      alertId: resolvedAlertId,
+    }).then((result) => {
+      if (!result.ok && !result.skipped) {
+        console.warn('[t1d-api] alert action dual-write failed', result.error);
+      }
+    });
     sendJson(res, 200, {
       ok: true,
       alertId: resolvedAlertId,

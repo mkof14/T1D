@@ -11,8 +11,8 @@ export const handleHouseholdRoutes = async (ctx) => {
     BODY_TOO_LARGE,
     findSessionUser,
     readHouseholds,
-    writeHouseholds,
-    mirrorHouseholdToSql,
+    persistHouseholdRecord,
+    persistHouseholdUpdate,
     updateUser,
     joinRateLimit,
     clientIp,
@@ -143,12 +143,7 @@ export const handleHouseholdRoutes = async (ctx) => {
           updatedAt: new Date().toISOString(),
         };
 
-    const nextHouseholds = existing
-      ? households.map((entry) => (entry.id === existing.id ? nextHousehold : entry))
-      : [...households, nextHousehold];
-
-    await writeHouseholds(nextHouseholds);
-    mirrorHouseholdToSql(nextHousehold);
+    await persistHouseholdRecord(households, nextHousehold);
     await updateUser(current.user.id, { householdId: nextHousehold.id });
 
     sendJson(res, 200, {
@@ -217,9 +212,7 @@ export const handleHouseholdRoutes = async (ctx) => {
       members: nextMembers,
       updatedAt: new Date().toISOString(),
     };
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    mirrorHouseholdToSql(nextHousehold);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     await updateUser(current.user.id, { householdId: nextHousehold.id });
 
     sendJson(res, 200, {
@@ -272,9 +265,7 @@ export const handleHouseholdRoutes = async (ctx) => {
       },
       updatedAt: new Date().toISOString(),
     };
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    mirrorHouseholdToSql(nextHousehold);
+    await persistHouseholdUpdate(households, householdIndex, nextHousehold);
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
     return true;
   }

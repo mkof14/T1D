@@ -4,6 +4,12 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **Alert SQL dual-write** — new alerts on Dexcom poll + responder actions (acknowledge/take/resolve) mirrored to `alerts` / `alert_transitions` / `acknowledgements`
+- **`persistHouseholdRecord`** — household setup/join/preferences use centralized SQL mirror
+- **`npm run compare:sql`** — KV vs SQL row count parity check for households/members/users
+
+## Completed without you (prior pass)
+
 - **Dexcom SQL dual-write** — `device_connections` + `oauth_credentials` synced on household updates and Dexcom poll
 - **`persistHouseholdUpdate`** — central helper mirrors household + Dexcom to SQL from dexcom/workspace/timeline routes
 - **Backfill** — includes Dexcom connection rows; verify script counts `device_connections` / `oauth_credentials`

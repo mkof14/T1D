@@ -29,7 +29,7 @@ export const applyAlertEvaluation = (household) => {
   const activeStages = new Set(['parent_alerted', 'parent_handling', 'caregiver_escalated', 'caregiver_active']);
 
   if (activeStages.has(safetyState.stage)) {
-    return { household, evaluation, decision };
+    return { household, evaluation, decision, alertCreated: null };
   }
 
   if (evaluation.shouldAlert && (safetyState.stage === 'monitoring' || safetyState.stage === 'recovery_watch')) {
@@ -75,6 +75,7 @@ export const applyAlertEvaluation = (household) => {
       },
       evaluation,
       decision,
+      alertCreated: alertEvent,
     };
   }
 
@@ -92,8 +93,9 @@ export const applyAlertEvaluation = (household) => {
       },
       evaluation,
       decision,
+      alertCreated: null,
     };
   }
 
-  return { household, evaluation, decision };
+  return { household, evaluation, decision, alertCreated: null };
 };

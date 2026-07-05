@@ -32,7 +32,7 @@ import { handleFeedbackRoutes } from './app/routes/feedback.routes.mjs';
 import { handleSystemRoutes } from './app/routes/system.routes.mjs';
 import { buildWorkspacePayloadForRequest } from './services/workspace-payload-service.mjs';
 import { createAuthStorage } from './services/auth-storage.mjs';
-import { dualWritePollReadings, dualWriteDexcomConnection } from './infrastructure/repositories/dual-write-service.mjs';
+import { dualWritePollReadings, dualWriteDexcomConnection, dualWriteAlertCreated } from './infrastructure/repositories/dual-write-service.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -221,6 +221,17 @@ const persistHouseholdUpdate = async (households, householdIndex, nextHousehold)
   return nextHousehold;
 };
 
+const persistHouseholdRecord = async (households, nextHousehold) => {
+  const index = households.findIndex((entry) => entry.id === nextHousehold.id);
+  if (index === -1) {
+    households.push(nextHousehold);
+    await writeHouseholds(households);
+    mirrorHouseholdToSql(nextHousehold);
+    return nextHousehold;
+  }
+  return persistHouseholdUpdate(households, index, nextHousehold);
+};
+
 const sendJson = (res, status, payload, headers = {}) => {
   applySecurityHeaders(res);
   res.writeHead(status, {
@@ -329,7 +340,7 @@ const applyDexcomPollToHousehold = async (household, source = 'manual') => {
     detail: nextDexcom.message,
   });
 
-  const { household: alertedHousehold } = applyAlertEvaluation(polledHousehold);
+  const { household: alertedHousehold, alertCreated, decision } = applyAlertEvaluation(polledHousehold);
   const dualWriteResult = await dualWritePollReadings(
     alertedHousehold,
     previousReadings,
@@ -341,6 +352,12 @@ const applyDexcomPollToHousehold = async (household, source = 'manual') => {
   const dexcomWriteResult = await dualWriteDexcomConnection(alertedHousehold);
   if (!dexcomWriteResult.ok && !dexcomWriteResult.skipped) {
     console.warn('[t1d-api] dexcom dual-write failed', dexcomWriteResult.error);
+  }
+  if (alertCreated) {
+    const alertWriteResult = await dualWriteAlertCreated(alertedHousehold, alertCreated, decision);
+    if (!alertWriteResult.ok && !alertWriteResult.skipped) {
+      console.warn('[t1d-api] alert dual-write failed', alertWriteResult.error);
+    }
   }
   return alertedHousehold;
 };
@@ -385,6 +402,7 @@ const buildRouteContext = (req, res, url, lang) => ({
   readHouseholds,
   writeHouseholds,
   persistHouseholdUpdate,
+  persistHouseholdRecord,
   mirrorHouseholdToSql,
   updateUser,
     readUsers,
