@@ -31,7 +31,7 @@ mkdirSync('docs', { recursive: true });
 writeFileSync(
   'docs/RELEASE_READY_REPORT.md',
   [
-    '# T1D Release Ready Report',
+    '# Steady Release Ready Report',
     '',
     `Generated: ${new Date().toISOString()}`,
     '',

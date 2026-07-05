@@ -4,6 +4,12 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **AccessView** — maps API duplicate-account error to localized Steady copy
+- **post-deploy smoke** — defaults to prod URL; checks `storage`, `sqlRead`, OpenAPI
+- **`npm run pre:joint`** — local Neon parity check before joint session
+
+## Completed without you (prior pass)
+
 - **Service extraction** — `household-storage.mjs` + `dexcom-poll-service.mjs` (slimmer `index.mjs`)
 - **Steady branding** — sign-in, signup, workspace route titles in all 11 languages
 

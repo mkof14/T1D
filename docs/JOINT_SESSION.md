@@ -18,9 +18,10 @@ The database password was exposed in chat. Treat it as compromised.
    cd ~/Desktop/T1D && node scripts/sync-vercel-env.mjs
    ```
 6. Redeploy (push to `main` or trigger redeploy in Vercel Dashboard)
-7. Verify:
+7. Verify locally before/after:
    ```bash
-   npm run verify:neon
+   npm run pre:joint          # verify:neon + compare:sql (needs DATABASE_URL in .env.local)
+   npm run smoke:deploy       # prod smoke (defaults to https://t1-d.vercel.app)
    curl -s https://t1-d.vercel.app/api/health | jq .
    ```
    Expect `"storage": "postgres"` and `"ok": true`.

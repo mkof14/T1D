@@ -42,7 +42,10 @@ interface AccessViewProps {
 
 const normalizeError = (message: string, copy: AccessCopy) => {
   if (message === 'Email or password is incorrect') return copy.errors.incorrectCredentials;
-  if (message === 'This email already has a T1D account') return copy.errors.duplicateEmail;
+  if (
+    message === 'This email already has a T1D account'
+    || message === 'Unable to create account with these details'
+  ) return copy.errors.duplicateEmail;
   if (message === 'Email and password are required') return copy.errors.missingCredentials;
   if (message === 'Request failed') return copy.errors.requestFailed;
   return message || copy.errors.requestFailed;

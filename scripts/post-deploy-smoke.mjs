@@ -1,12 +1,27 @@
-const baseUrl = String(process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3002').replace(/\/$/, '');
+const baseUrl = String(
+  process.env.SMOKE_BASE_URL || process.env.VITE_SITE_URL || 'https://t1-d.vercel.app'
+).replace(/\/$/, '');
 
 const checks = [
   { name: 'home', url: `${baseUrl}/`, expectStatus: 200 },
-  { name: 'health', url: `${baseUrl}/api/health`, expectStatus: 200, expectJson: (body) => body.ok === true },
-  { name: 'session', url: `${baseUrl}/api/session`, expectStatus: 200, expectJson: (body) => body.authenticated === false },
+  {
+    name: 'health',
+    url: `${baseUrl}/api/health`,
+    expectStatus: 200,
+    expectJson: (body) => body.ok === true && body.storage === 'postgres' && typeof body.sqlRead === 'string',
+  },
+  {
+    name: 'session',
+    url: `${baseUrl}/api/session`,
+    expectStatus: 200,
+    expectJson: (body) => body.authenticated === false,
+  },
+  { name: 'openapi', url: `${baseUrl}/api/openapi.yaml`, expectStatus: 200 },
 ];
 
 let failed = 0;
+
+console.log(`[post-deploy] base URL: ${baseUrl}`);
 
 for (const check of checks) {
   try {
