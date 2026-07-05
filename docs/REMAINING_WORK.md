@@ -10,7 +10,8 @@ Updated: 2026-07-05
 - **Dual-write skeleton** for `glucose_readings` in `server/infrastructure/repositories/glucose-reading-repository.mjs`
 - **Dual-write on Dexcom poll** via `dual-write-service.mjs` (household upsert + new readings)
 - **Backfill script:** `npm run db:backfill` (`scripts/backfill-kv-to-sql.mjs`)
-- **Route extraction:** auth, household, dexcom, workspace, feedback → `server/app/routes/`
+- **Route extraction:** auth, household, dexcom, workspace, feedback, system → `server/app/routes/`
+- **Workspace payload** moved to `server/services/workspace-payload-service.mjs`
 - **Tests:** timeline API integration + repository unit tests (run `npm run test:unit`)
 
 ## Completed without you (prior passes)
@@ -47,8 +48,8 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 | Phase | Task |
 |-------|------|
-| **C** | Run `npm run db:backfill` on production after verifying household rows |
-| **3** | Extract health/cron/openapi routes; slim `buildWorkspacePayload` to service module |
+| **C** | Verify `glucose_readings` rows on Neon after polls (`npm run db:backfill` run locally) |
+| **4** | Extract session/auth storage helpers; optional user/household SQL repositories |
 
 ---
 
