@@ -173,7 +173,7 @@ export const createAuthStorage = ({
   const resolveGoogleUser = async ({ profile, mode, role }) => {
     const email = normalizeEmail(profile.email);
     const googleId = safeText(profile.sub, 120);
-    const fullName = safeText(profile.name, 120) || email.split('@')[0] || 'T1D Member';
+    const fullName = safeText(profile.name, 120) || email.split('@')[0] || 'Steady Member';
 
     if (!email || !googleId || profile.email_verified === false) {
       return { error: 'invalid_profile' };

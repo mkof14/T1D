@@ -1,6 +1,6 @@
 import './load-env.mjs';
 import http from 'node:http';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -35,6 +35,16 @@ import { createAuthStorage } from './services/auth-storage.mjs';
 import { createHouseholdStorage } from './services/household-storage.mjs';
 import { createDexcomPollService } from './services/dexcom-poll-service.mjs';
 import { dualWritePollReadings, dualWriteDexcomConnection, dualWriteAlertCreated } from './infrastructure/repositories/dual-write-service.mjs';
+import { hashPassword, isValidPassword, verifyPassword } from './lib/password.mjs';
+import {
+  createCookieHelpers,
+  normalizeEmail,
+  parseCookies,
+  safeEqualString,
+  safeRole,
+  safeText,
+} from './lib/request-utils.mjs';
+import { createHttpResponse, BODY_TOO_LARGE } from './lib/http-response.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +69,6 @@ const SITE_URL = String(process.env.T1D_SITE_URL || 'http://localhost:3002').tri
 const isProductionRuntime = Boolean(process.env.VERCEL || process.env.NODE_ENV === 'production');
 const MAX_BODY_BYTES = 3 * 1024 * 1024;
 const MIN_PASSWORD_LENGTH = 8;
-const BODY_TOO_LARGE = Symbol('BODY_TOO_LARGE');
 
 if (isProductionRuntime && process.env.T1D_EXPOSE_RESET_TOKEN === 'true') {
   console.error('[t1d-api] T1D_EXPOSE_RESET_TOKEN must not be enabled in production');
@@ -102,72 +111,25 @@ const ENV_ALLOWED_ORIGINS = String(process.env.T1D_ALLOWED_ORIGINS || '')
   .filter(Boolean);
 const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS]);
 
-const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
-const safeText = (value, max = 160) => String(value || '').trim().slice(0, max);
-const safeRole = (value) => (['parent', 'adult', 'caregiver'].includes(value) ? value : 'parent');
 const generateInviteCode = () => randomBytes(16).toString('hex').toUpperCase();
 
-const safeEqualString = (leftValue, rightValue) => {
-  const left = Buffer.from(String(leftValue));
-  const right = Buffer.from(String(rightValue));
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
-};
+const { createSessionCookie, clearSessionCookie } = createCookieHelpers({
+  sessionCookie: SESSION_COOKIE,
+  sessionTtlMs: SESSION_TTL_MS,
+});
 
-const isValidPassword = (password) => String(password || '').length >= MIN_PASSWORD_LENGTH;
-
-const assertMutationOrigin = (req, res) => {
-  if (!isProductionRuntime) return true;
-  const origin = String(req.headers.origin || '');
-  if (origin && ALLOWED_ORIGINS.has(origin)) return true;
-  const referer = String(req.headers.referer || '');
-  if (referer) {
-    try {
-      if (ALLOWED_ORIGINS.has(new URL(referer).origin)) return true;
-    } catch {
-      // ignore malformed referer
-    }
-  }
-  sendJson(res, 403, { error: 'Origin not allowed' });
-  return false;
-};
-
-const hashPassword = (password) => {
-  const salt = randomBytes(16).toString('hex');
-  const hash = scryptSync(password, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
-};
-
-const verifyPassword = (password, stored) => {
-  const [salt, hash] = String(stored || '').split(':');
-  if (!salt || !hash) return false;
-  const candidate = scryptSync(password, salt, 64);
-  const target = Buffer.from(hash, 'hex');
-  return candidate.length === target.length && timingSafeEqual(candidate, target);
-};
-
-const parseCookies = (cookieHeader = '') =>
-  Object.fromEntries(
-    cookieHeader
-      .split(';')
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((entry) => {
-        const index = entry.indexOf('=');
-        if (index === -1) return [entry, ''];
-        return [entry.slice(0, index), decodeURIComponent(entry.slice(index + 1))];
-      })
-  );
-
-const isSecureRequest = (req) =>
-  process.env.T1D_COOKIE_SECURE === 'true' ||
-  req.headers['x-forwarded-proto'] === 'https' ||
-  String(req.headers.origin || '').startsWith('https://');
-
-const createSessionCookie = (token, req) =>
-  `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${isSecureRequest(req) ? '; Secure' : ''}`;
-
-const clearSessionCookie = () => `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+const {
+  sendJson,
+  sendEmpty,
+  readBody,
+  withCors,
+  assertMutationOrigin,
+} = createHttpResponse({
+  applySecurityHeaders,
+  maxBodyBytes: MAX_BODY_BYTES,
+  allowedOrigins: ALLOWED_ORIGINS,
+  isProductionRuntime,
+});
 
 const authStorage = createAuthStorage({
   readJson,
@@ -250,54 +212,6 @@ const {
   runBackgroundDexcomSync,
 } = dexcomPollService;
 
-const sendJson = (res, status, payload, headers = {}) => {
-  applySecurityHeaders(res);
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    ...headers,
-  });
-  res.end(JSON.stringify(payload));
-};
-
-const sendEmpty = (res, status, headers = {}) => {
-  applySecurityHeaders(res);
-  res.writeHead(status, headers);
-  res.end();
-};
-
-const readBody = async (req) => {
-  const declaredLength = Number(req.headers['content-length'] || 0);
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-    return BODY_TOO_LARGE;
-  }
-
-  const chunks = [];
-  let totalBytes = 0;
-  for await (const chunk of req) {
-    totalBytes += chunk.length;
-    if (totalBytes > MAX_BODY_BYTES) return BODY_TOO_LARGE;
-    chunks.push(chunk);
-  }
-  if (chunks.length === 0) return {};
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } catch {
-    return null;
-  }
-};
-
-const withCors = (req, res) => {
-  const origin = req.headers.origin;
-  const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
-  if (allowedOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-};
-
 const buildRouteContext = (req, res, url, lang) => ({
   req,
   res,
@@ -339,7 +253,7 @@ const buildRouteContext = (req, res, url, lang) => ({
   normalizeEmail,
   safeText,
   safeRole,
-  isValidPassword,
+  isValidPassword: (password) => isValidPassword(password, MIN_PASSWORD_LENGTH),
   MIN_PASSWORD_LENGTH,
   generateInviteCode,
   normalizeDiabetesType,

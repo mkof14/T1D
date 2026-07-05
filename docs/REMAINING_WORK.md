@@ -4,6 +4,12 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **HTTP/password libs** — extracted `password.mjs`, `request-utils.mjs`, `http-response.mjs` from `index.mjs`
+- **Default member name** — signup/Google fallback uses `Steady Member` instead of `T1D Member`
+- **Password unit tests** added
+
+## Completed without you (prior pass)
+
 - **AccessView** — maps API duplicate-account error to localized Steady copy
 - **post-deploy smoke** — defaults to prod URL; checks `storage`, `sqlRead`, OpenAPI
 - **`npm run pre:joint`** — local Neon parity check before joint session

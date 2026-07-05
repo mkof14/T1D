@@ -270,7 +270,7 @@ export const handleAuthRoutes = async (ctx) => {
         id: randomBytes(12).toString('hex'),
         email,
         passwordHash: hashPassword(password),
-        fullName: safeText(body.fullName, 120) || 'T1D Member',
+        fullName: safeText(body.fullName, 120) || 'Steady Member',
         role: safeRole(body.role),
         organization: safeText(body.organization, 120),
         createdAt: new Date().toISOString(),
