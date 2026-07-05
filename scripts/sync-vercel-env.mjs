@@ -1,12 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 const PROD_URL = 'https://t1-d.vercel.app';
-const envFile = readFileSync('.env.local', 'utf8');
 const local = {};
 
-for (const line of envFile.split('\n')) {
+for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith('#')) continue;
   const index = trimmed.indexOf('=');
@@ -18,7 +17,6 @@ for (const line of envFile.split('\n')) {
 }
 
 const cronSecret = randomBytes(32).toString('hex');
-
 const productionEnv = {
   VITE_SITE_URL: PROD_URL,
   T1D_SITE_URL: PROD_URL,
@@ -37,42 +35,30 @@ const productionEnv = {
   DEXCOM_API_BASE_URL: 'https://sandbox-api.dexcom.com',
 };
 
-if (local.DEXCOM_CLIENT_ID && local.DEXCOM_CLIENT_ID !== '...') {
-  productionEnv.DEXCOM_CLIENT_ID = local.DEXCOM_CLIENT_ID;
-}
-if (local.DEXCOM_CLIENT_SECRET && local.DEXCOM_CLIENT_SECRET !== '...') {
-  productionEnv.DEXCOM_CLIENT_SECRET = local.DEXCOM_CLIENT_SECRET;
-}
-if (local.UPSTASH_REDIS_REST_URL) {
-  productionEnv.UPSTASH_REDIS_REST_URL = local.UPSTASH_REDIS_REST_URL;
-}
-if (local.UPSTASH_REDIS_REST_TOKEN) {
-  productionEnv.UPSTASH_REDIS_REST_TOKEN = local.UPSTASH_REDIS_REST_TOKEN;
-}
-if (local.DATABASE_URL) {
-  productionEnv.DATABASE_URL = local.DATABASE_URL;
-}
+const vercel = (args, input = '') =>
+  spawnSync('npx', ['--yes', 'vercel@54.20.1', ...args], { input, encoding: 'utf8' });
+
+vercel(['--version']);
 
 const addEnv = (key, value) => {
   if (!value) {
-    console.log(`[vercel-env] skip ${key} (empty)`);
+    console.log(`[vercel-env] skip ${key}`);
     return;
   }
-  const result = spawnSync(
-    'npx',
-    ['vercel', 'env', 'add', key, 'production', 'preview', '--force'],
-    { input: value, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-  );
-  if (result.status === 0) {
-    console.log(`[vercel-env] set ${key}`);
-    return;
+  for (const target of ['production']) {
+    const result = vercel(['env', 'add', key, target, '--force'], value);
+    const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
+    if (result.status === 0 || output.includes('Saved Environment Variable') || output.includes('Overrode Environment Variable')) {
+      console.log(`[vercel-env] set ${key} (${target})`);
+      continue;
+    }
+    console.error(`[vercel-env] failed ${key} (${target}): ${output}`);
+    process.exitCode = 1;
   }
-  console.error(`[vercel-env] failed ${key}: ${result.stderr || result.stdout}`);
-  process.exitCode = 1;
 };
 
 for (const [key, value] of Object.entries(productionEnv)) {
   addEnv(key, value);
 }
 
-console.log('[vercel-env] Done. Redeploy production to apply build-time vars.');
+console.log('[vercel-env] Done. Redeploy: npx vercel --prod --yes');
