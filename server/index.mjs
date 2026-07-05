@@ -32,6 +32,8 @@ import { handleFeedbackRoutes } from './app/routes/feedback.routes.mjs';
 import { handleSystemRoutes } from './app/routes/system.routes.mjs';
 import { buildWorkspacePayloadForRequest } from './services/workspace-payload-service.mjs';
 import { createAuthStorage } from './services/auth-storage.mjs';
+import { createHouseholdStorage } from './services/household-storage.mjs';
+import { createDexcomPollService } from './services/dexcom-poll-service.mjs';
 import { dualWritePollReadings, dualWriteDexcomConnection, dualWriteAlertCreated } from './infrastructure/repositories/dual-write-service.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -206,31 +208,47 @@ const {
 
 const findSessionUser = async (req) => authStorage.findSessionUser(req, parseCookies);
 
-const mirrorHouseholdToSql = (household) => {
-  void dualWriteDexcomConnection(household).then((result) => {
-    if (!result.ok && !result.skipped) {
-      console.warn('[t1d-api] household/dexcom dual-write failed', result.error);
-    }
-  });
-};
+const householdStorage = createHouseholdStorage({
+  readJson,
+  writeJson,
+  HOUSEHOLDS_FILE,
+  ensureSafetyState,
+  normalizeDiabetesType,
+  sealDexcomTokens,
+  ensureDexcomConnection,
+  dualWriteDexcomConnection,
+});
 
-const persistHouseholdUpdate = async (households, householdIndex, nextHousehold) => {
-  households[householdIndex] = nextHousehold;
-  await writeHouseholds(households);
-  mirrorHouseholdToSql(nextHousehold);
-  return nextHousehold;
-};
+const {
+  readHouseholds,
+  writeHouseholds,
+  persistHouseholdUpdate,
+  persistHouseholdRecord,
+  mirrorHouseholdToSql,
+} = householdStorage;
 
-const persistHouseholdRecord = async (households, nextHousehold) => {
-  const index = households.findIndex((entry) => entry.id === nextHousehold.id);
-  if (index === -1) {
-    households.push(nextHousehold);
-    await writeHouseholds(households);
-    mirrorHouseholdToSql(nextHousehold);
-    return nextHousehold;
-  }
-  return persistHouseholdUpdate(households, index, nextHousehold);
-};
+const dexcomPollService = createDexcomPollService({
+  randomBytes,
+  ensureDexcomOps,
+  ensureDexcomConnection,
+  dexcomEnvConfig,
+  pollDexcom,
+  pollDexcomLive,
+  applyAlertEvaluation,
+  dualWritePollReadings,
+  dualWriteDexcomConnection,
+  dualWriteAlertCreated,
+  t,
+  readHouseholds,
+  writeHouseholds,
+});
+
+const {
+  appendDexcomAudit,
+  shouldRunBackgroundDexcomPoll,
+  applyDexcomPollToHousehold,
+  runBackgroundDexcomSync,
+} = dexcomPollService;
 
 const sendJson = (res, status, payload, headers = {}) => {
   applySecurityHeaders(res);
@@ -266,116 +284,6 @@ const readBody = async (req) => {
   } catch {
     return null;
   }
-};
-
-const readHouseholds = async () => {
-  const data = await readJson(HOUSEHOLDS_FILE, { households: [] });
-  return Array.isArray(data.households) ? data.households.map(normalizeHouseholdRecord) : [];
-};
-
-const writeHouseholds = async (households) => writeJson(HOUSEHOLDS_FILE, { households: households.map(normalizeHouseholdRecord) });
-
-const normalizeHouseholdRecord = (household) => {
-  if (!household || typeof household !== 'object') return household;
-  const safetyState = ensureSafetyState(household);
-  const { nightState: _legacyNightState, ...rest } = household;
-  const sealedDexcom = rest.dexcom ? sealDexcomTokens(ensureDexcomConnection({ dexcom: rest.dexcom })) : rest.dexcom;
-  return {
-    ...rest,
-    diabetesType: normalizeDiabetesType(rest.diabetesType),
-    safetyState,
-    dexcom: sealedDexcom,
-  };
-};
-
-const appendDexcomAudit = (household, event) => {
-  const ops = ensureDexcomOps(household);
-  return {
-    ...household,
-    dexcomOps: {
-      ...ops,
-      auditTrail: [
-        {
-          id: randomBytes(6).toString('hex'),
-          time: new Date().toISOString(),
-          ...event,
-        },
-        ...ops.auditTrail,
-      ].slice(0, 24),
-      lastSuccessAt: event.status === 'ok' ? new Date().toISOString() : ops.lastSuccessAt,
-      lastFailureAt: event.status === 'error' ? new Date().toISOString() : ops.lastFailureAt,
-      consecutiveFailures: event.status === 'ok' ? 0 : event.status === 'error' ? ops.consecutiveFailures + 1 : ops.consecutiveFailures,
-      workerState: ops.workerState,
-      nextWorkerRunAt: ops.nextWorkerRunAt,
-      lastWorkerRunAt: ops.lastWorkerRunAt,
-      pausedUntil: ops.pausedUntil,
-    },
-  };
-};
-
-const shouldRunBackgroundDexcomPoll = (household) => {
-  const dexcom = ensureDexcomConnection(household);
-  if (!dexcom || (dexcom.status !== 'connected' && dexcom.status !== 'error')) return false;
-  if (!dexcom.nextPollDueAt) return false;
-  const dueAt = Date.parse(dexcom.nextPollDueAt);
-  return Number.isFinite(dueAt) && dueAt <= Date.now();
-};
-
-const applyDexcomPollToHousehold = async (household, source = 'manual') => {
-  const previousReadings = ensureDexcomConnection(household).readings || [];
-  const nextDexcom = dexcomEnvConfig().useLiveMode
-    ? await pollDexcomLive(household)
-    : pollDexcom(household);
-
-  const polledHousehold = appendDexcomAudit({
-    ...household,
-    dexcom: nextDexcom,
-    updatedAt: new Date().toISOString(),
-  }, {
-    kind: nextDexcom.status === 'error' ? 'error' : 'poll',
-    status: nextDexcom.status === 'error' ? 'error' : nextDexcom.requestHealth === 'retrying' || nextDexcom.dataFreshness !== 'live' ? 'warning' : 'ok',
-    headline: nextDexcom.status === 'error'
-      ? t('en', 'dexcomPollFailed', source)
-      : t('en', 'dexcomPollCompleted', source),
-    detail: nextDexcom.message,
-  });
-
-  const { household: alertedHousehold, alertCreated, decision } = applyAlertEvaluation(polledHousehold);
-  const dualWriteResult = await dualWritePollReadings(
-    alertedHousehold,
-    previousReadings,
-    ensureDexcomConnection(alertedHousehold).readings || [],
-  );
-  if (!dualWriteResult.ok && !dualWriteResult.skipped) {
-    console.warn('[t1d-api] glucose dual-write failed', dualWriteResult.error);
-  }
-  const dexcomWriteResult = await dualWriteDexcomConnection(alertedHousehold);
-  if (!dexcomWriteResult.ok && !dexcomWriteResult.skipped) {
-    console.warn('[t1d-api] dexcom dual-write failed', dexcomWriteResult.error);
-  }
-  if (alertCreated) {
-    const alertWriteResult = await dualWriteAlertCreated(alertedHousehold, alertCreated, decision);
-    if (!alertWriteResult.ok && !alertWriteResult.skipped) {
-      console.warn('[t1d-api] alert dual-write failed', alertWriteResult.error);
-    }
-  }
-  return alertedHousehold;
-};
-
-const runBackgroundDexcomSync = async () => {
-  const households = await readHouseholds();
-  let changed = false;
-  const nextHouseholds = await Promise.all(
-    households.map(async (household) => {
-      if (!shouldRunBackgroundDexcomPoll(household)) return household;
-      changed = true;
-      return applyDexcomPollToHousehold(household, 'background');
-    })
-  );
-  if (changed) {
-    await writeHouseholds(nextHouseholds);
-  }
-  return { processed: nextHouseholds.length, changed };
 };
 
 const withCors = (req, res) => {

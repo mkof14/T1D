@@ -4,7 +4,12 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
-- **Bug fix:** alert timeline mutations now receive `persistHouseholdUpdate` via shared route context (was broken at runtime)
+- **Service extraction** — `household-storage.mjs` + `dexcom-poll-service.mjs` (slimmer `index.mjs`)
+- **Steady branding** — sign-in, signup, workspace route titles in all 11 languages
+
+## Completed without you (prior pass)
+
+- **Bug fix:** alert timeline mutations receive `persistHouseholdUpdate` via shared route context
 - **Backfill** — also syncs historical `audit-log.json` events and alert entries from household `eventLog`
 - **Integration test** — acknowledge endpoint returns 409 when no active alert (guards route wiring)
 
@@ -101,7 +106,7 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 | **Medical** | Alert thresholds review with advisor; escalation testing with real families |
 | **Legal i18n** | Translate privacy/terms/medical bodies (labels done, bodies EN-only) |
 | **Knowledge** | Complete articles for ru, uk, zh, ja, pt, he, ar |
-| **Branding** | App route titles still say "T1D Access" — unify to Steady if desired |
+| **Branding** | App route titles unified to Steady (11 languages) |
 | **Monitoring** | Optional `@sentry/react` package; server-side Sentry for API |
 | **Features** | Push/SMS alerts, real nutrition API, branded PWA icons |
 | **Compliance** | Legal review for target markets; account self-deletion flow |
