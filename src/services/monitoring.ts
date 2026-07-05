@@ -37,6 +37,7 @@ export const initMonitoring = async () => {
     window.Sentry.init({
       dsn,
       environment: import.meta.env.MODE,
+      release: `steady@${import.meta.env.VITE_APP_VERSION || '1.1.0'}`,
       tracesSampleRate: 0.1,
     });
   }

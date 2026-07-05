@@ -10,8 +10,14 @@ let dataDir;
 beforeAll(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 't1d-api-int-'));
   process.env.T1D_DATA_DIR = dataDir;
-  process.env.T1D_API_ALLOWED_ORIGINS = 'http://localhost:3002';
+  delete process.env.DATABASE_URL;
+  delete process.env.T1D_GOOGLE_CLIENT_ID;
+  delete process.env.T1D_GOOGLE_CLIENT_SECRET;
+  delete process.env.GOOGLE_CLIENT_ID;
+  delete process.env.GOOGLE_CLIENT_SECRET;
   ({ handleRequest } = await import('../../server/index.mjs'));
+  process.env.T1D_GOOGLE_CLIENT_ID = '';
+  process.env.T1D_GOOGLE_CLIENT_SECRET = '';
 });
 
 afterAll(() => {

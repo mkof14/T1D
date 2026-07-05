@@ -16,7 +16,7 @@ registerServiceWorker();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <ErrorBoundary fallbackTitle="T1D hit an unexpected error">
+    <ErrorBoundary fallbackTitle="Steady hit an unexpected error">
       <App />
     </ErrorBoundary>
   </React.StrictMode>

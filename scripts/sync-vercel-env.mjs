@@ -16,7 +16,8 @@ for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
   local[key] = value;
 }
 
-const cronSecret = randomBytes(32).toString('hex');
+const cronSecret = local.T1D_CRON_SECRET || local.CRON_SECRET || randomBytes(32).toString('hex');
+const secretsKey = local.T1D_SECRETS_KEY || cronSecret;
 const productionEnv = {
   VITE_SITE_URL: PROD_URL,
   T1D_SITE_URL: PROD_URL,
@@ -24,6 +25,7 @@ const productionEnv = {
   T1D_COOKIE_SECURE: 'true',
   T1D_CRON_SECRET: cronSecret,
   CRON_SECRET: cronSecret,
+  T1D_SECRETS_KEY: secretsKey,
   T1D_GOOGLE_CLIENT_ID: local.T1D_GOOGLE_CLIENT_ID,
   T1D_GOOGLE_CLIENT_SECRET: local.T1D_GOOGLE_CLIENT_SECRET,
   T1D_GOOGLE_REDIRECT_URI: `${PROD_URL}/api/access/google/callback`,

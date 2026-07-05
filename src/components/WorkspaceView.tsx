@@ -32,6 +32,7 @@ import { memberLayoutTypeClass } from '../lib/hero-path';
 import { glucoseDashboardTypeClass, typeCardClass, workspaceShellTypeClass } from '../lib/diabetes-type-theme';
 import { GlucoseNowDashboard } from './workspace/GlucoseNowDashboard';
 import { WorkspaceNowPanel } from './workspace/WorkspaceNowPanel';
+import { WorkspaceBetaBanner } from './workspace/WorkspaceBetaBanner';
 import { AlertFlowDiagram } from './workspace/AlertFlowDiagram';
 import { DailyHistoryChart } from './workspace/DailyHistoryChart';
 import { WORKSPACE_NOW_COPY } from '../content/workspace-now-copy';
@@ -759,6 +760,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           title={`${copy.welcome}, ${user.fullName || user.email}`}
           subtitle={focus.body}
         />
+
+        <WorkspaceBetaBanner lang={lang} theme={theme} isRTL={isRTL} />
 
         <div className={`t1d-workspace-shell ${workspaceShellTypeClass(household.diabetesType)} ${isRTL ? 't1d-workspace-shell--rtl' : ''}`}>
           <WorkspaceSidebar active={activeSection} onSelect={setActiveSection} theme={theme} lang={lang} isRTL={isRTL} diabetesType={household.diabetesType} />

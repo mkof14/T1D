@@ -4,6 +4,7 @@ import path from 'node:path';
 let pool = null;
 let dataDir = '';
 let storageBackend = 'json';
+let storageProbeError = '';
 
 const namespaceForFile = (filePath) => {
   const base = path.basename(filePath, '.json');
@@ -27,8 +28,30 @@ const initPool = async () => {
     )
   `);
   storageBackend = 'postgres';
+  storageProbeError = '';
   return pool;
 };
+
+export const probeStorage = async () => {
+  storageProbeError = '';
+  const databaseUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!databaseUrl) {
+    storageBackend = 'json';
+    return { backend: storageBackend, configured: false, ok: true };
+  }
+
+  try {
+    await initPool();
+    return { backend: storageBackend, configured: true, ok: storageBackend === 'postgres' };
+  } catch (error) {
+    storageBackend = 'json';
+    storageProbeError = error instanceof Error ? error.message : 'Postgres probe failed';
+    return { backend: storageBackend, configured: true, ok: false, error: storageProbeError };
+  }
+};
+
+export const getStorageBackend = () => storageBackend;
+export const getStorageProbeError = () => storageProbeError;
 
 export const createStorage = ({ dataDirectory }) => {
   dataDir = dataDirectory;
@@ -87,10 +110,7 @@ export const createStorage = ({ dataDirectory }) => {
        DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
       [namespace, 'default', value]
     );
-    await writeJsonFile(filePath, value);
   };
 
   return { read, write };
 };
-
-export const getStorageBackend = () => storageBackend;

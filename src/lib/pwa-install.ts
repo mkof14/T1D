@@ -7,6 +7,10 @@ const INSTALL_EVENT = 'steady-pwa-installable';
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
+const UPDATE_EVENT = 'steady-pwa-update';
+
+let waitingWorker: ServiceWorker | null = null;
+
 export const initPwaInstall = () => {
   if (typeof window === 'undefined') return;
 
@@ -47,9 +51,39 @@ export const isStandalonePwa = () => {
   );
 };
 
+export const subscribeSwUpdate = (listener: () => void) => {
+  if (typeof window === 'undefined') return () => undefined;
+  window.addEventListener(UPDATE_EVENT, listener);
+  return () => window.removeEventListener(UPDATE_EVENT, listener);
+};
+
+export const hasPendingSwUpdate = () => Boolean(waitingWorker);
+
+export const applySwUpdate = async () => {
+  if (!waitingWorker) return false;
+  waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+  return true;
+};
+
 export const registerServiceWorker = () => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      registration.addEventListener('updatefound', () => {
+        const nextWorker = registration.installing;
+        if (!nextWorker) return;
+        nextWorker.addEventListener('statechange', () => {
+          if (nextWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            waitingWorker = nextWorker;
+            window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
+          }
+        });
+      });
+    }).catch(() => undefined);
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      waitingWorker = null;
+      window.location.reload();
+    });
   });
 };

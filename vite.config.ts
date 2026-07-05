@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 
+const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
 const siteUrl = String(process.env.VITE_SITE_URL || process.env.T1D_SITE_URL || 'http://localhost:3002').replace(/\/$/, '');
 
 const siteUrlPlugin = () => ({
@@ -12,6 +14,9 @@ const siteUrlPlugin = () => ({
 
 export default defineConfig({
   plugins: [react(), siteUrlPlugin()],
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
+  },
   server: {
     port: 3002,
     proxy: {

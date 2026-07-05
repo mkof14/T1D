@@ -38,7 +38,7 @@
       "destination": "/api/index.mjs"
     },
     {
-      "source": "/((?!api|assets|downloads|favicon.ico|favicon.svg|og-image.svg|robots.txt|sitemap.xml|manifest.webmanifest|sw.js|icons).*)",
+      "source": "/((?!api|assets|downloads|favicon.ico|favicon.svg|og-image.svg|og-image.png|robots.txt|sitemap.xml|manifest.webmanifest|sw.js|icons).*)",
       "destination": "/index.html"
     }
   ]

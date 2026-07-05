@@ -56,6 +56,20 @@ interface T1DFooterProps {
   onToggleTheme: () => void;
 }
 
+const FOOTER_PWA_COPY: Record<Language, string> = {
+  en: 'PWA manifest',
+  ru: 'PWA-манифест',
+  uk: 'PWA-маніфест',
+  es: 'Manifiesto PWA',
+  fr: 'Manifeste PWA',
+  de: 'PWA-Manifest',
+  zh: 'PWA 清单',
+  ja: 'PWAマニフェスト',
+  pt: 'Manifesto PWA',
+  he: 'מניפסט PWA',
+  ar: 'بيان PWA',
+};
+
 const PILL_COPY: Record<Language, [string, string, string]> = {
   en: ['One calm screen', 'Family at the center', 'Gentle, not noisy'],
   ru: ['Один спокойный экран', 'Семья в центре', 'Мягко, без шума'],
@@ -245,7 +259,7 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
               className="t1d-footer-download-badge"
             >
               <Download size={12} />
-              PWA
+              {FOOTER_PWA_COPY[lang]}
             </a>
           </nav>
 

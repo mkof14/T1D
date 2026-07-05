@@ -28,9 +28,10 @@ import {
   pollDexcom,
   pollDexcomLive,
   refreshDexcomToken,
+  sealDexcomTokens,
 } from './dexcom-service.mjs';
 import { startDexcomSyncWorker } from './sync-worker.mjs';
-import { createStorage, getStorageBackend } from './storage.mjs';
+import { createStorage, getStorageBackend, getStorageProbeError, probeStorage } from './storage.mjs';
 import { applyAlertEvaluation } from './alert-engine.mjs';
 import { createRateLimiter, clientIp, isUpstashRateLimitEnabled } from './rate-limit.mjs';
 import { requestLang, t } from './backend-i18n.mjs';
@@ -69,9 +70,22 @@ const PASSWORD_RESETS_FILE = path.join(DATA_DIR, 'password-resets.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 const SESSION_COOKIE = 't1d_sid';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
-const CRON_SECRET = String(process.env.T1D_CRON_SECRET || '').trim();
+const CRON_SECRET = String(process.env.T1D_CRON_SECRET || process.env.CRON_SECRET || '').trim();
 const SITE_URL = String(process.env.T1D_SITE_URL || 'http://localhost:3002').trim();
+const isProductionRuntime = Boolean(process.env.VERCEL || process.env.NODE_ENV === 'production');
+const MAX_BODY_BYTES = 3 * 1024 * 1024;
+const MIN_PASSWORD_LENGTH = 8;
+const BODY_TOO_LARGE = Symbol('BODY_TOO_LARGE');
+
+if (isProductionRuntime && process.env.T1D_EXPOSE_RESET_TOKEN === 'true') {
+  console.error('[t1d-api] T1D_EXPOSE_RESET_TOKEN must not be enabled in production');
+  process.exit(1);
+}
+
 const authRateLimit = createRateLimiter({ windowMs: 60_000, max: 12, keyPrefix: 'auth' });
+const joinRateLimit = createRateLimiter({ windowMs: 60_000, max: 8, keyPrefix: 'join' });
+const feedbackRateLimit = createRateLimiter({ windowMs: 60_000, max: 6, keyPrefix: 'feedback' });
+const resetConfirmRateLimit = createRateLimiter({ windowMs: 60_000, max: 8, keyPrefix: 'reset-confirm' });
 const SUPPORT_ACTIONS = new Set([
   'parent_handling',
   'parent_escalate',
@@ -88,12 +102,16 @@ const SUPPORT_ACTIONS = new Set([
   'DONE',
 ]);
 
-const DEFAULT_ALLOWED_ORIGINS = [
-  'http://localhost:3002',
-  'http://127.0.0.1:3002',
-  'http://localhost:4174',
-  'http://127.0.0.1:4174',
-];
+const DEFAULT_ALLOWED_ORIGINS = isProductionRuntime
+  ? []
+  : [
+      'http://localhost:3002',
+      'http://127.0.0.1:3002',
+      'http://localhost:4174',
+      'http://127.0.0.1:4174',
+      'http://localhost:3003',
+      'http://127.0.0.1:3003',
+    ];
 const ENV_ALLOWED_ORIGINS = String(process.env.T1D_ALLOWED_ORIGINS || '')
   .split(',')
   .map((value) => value.trim())
@@ -103,6 +121,32 @@ const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIG
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 const safeText = (value, max = 160) => String(value || '').trim().slice(0, max);
 const safeRole = (value) => (['parent', 'adult', 'caregiver'].includes(value) ? value : 'parent');
+const generateInviteCode = () => randomBytes(16).toString('hex').toUpperCase();
+
+const safeEqualString = (leftValue, rightValue) => {
+  const left = Buffer.from(String(leftValue));
+  const right = Buffer.from(String(rightValue));
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+};
+
+const isValidPassword = (password) => String(password || '').length >= MIN_PASSWORD_LENGTH;
+
+const assertMutationOrigin = (req, res) => {
+  if (!isProductionRuntime) return true;
+  const origin = String(req.headers.origin || '');
+  if (origin && ALLOWED_ORIGINS.has(origin)) return true;
+  const referer = String(req.headers.referer || '');
+  if (referer) {
+    try {
+      if (ALLOWED_ORIGINS.has(new URL(referer).origin)) return true;
+    } catch {
+      // ignore malformed referer
+    }
+  }
+  sendJson(res, 403, { error: 'Origin not allowed' });
+  return false;
+};
 
 const hashPassword = (password) => {
   const salt = randomBytes(16).toString('hex');
@@ -157,8 +201,18 @@ const sendEmpty = (res, status, headers = {}) => {
 };
 
 const readBody = async (req) => {
+  const declaredLength = Number(req.headers['content-length'] || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return BODY_TOO_LARGE;
+  }
+
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX_BODY_BYTES) return BODY_TOO_LARGE;
+    chunks.push(chunk);
+  }
   if (chunks.length === 0) return {};
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -178,10 +232,12 @@ const normalizeHouseholdRecord = (household) => {
   if (!household || typeof household !== 'object') return household;
   const safetyState = ensureSafetyState(household);
   const { nightState: _legacyNightState, ...rest } = household;
+  const sealedDexcom = rest.dexcom ? sealDexcomTokens(ensureDexcomConnection({ dexcom: rest.dexcom })) : rest.dexcom;
   return {
     ...rest,
     diabetesType: normalizeDiabetesType(rest.diabetesType),
     safetyState,
+    dexcom: sealedDexcom,
   };
 };
 
@@ -277,12 +333,13 @@ const readOAuthStates = async () => {
 
 const writeOAuthStates = async (states) => writeJson(OAUTH_STATES_FILE, { states });
 
-const createOAuthState = async (householdId) => {
+const createOAuthState = async (householdId, userId = '') => {
   const token = randomBytes(12).toString('hex');
   const states = await readOAuthStates();
   states.push({
     token,
     householdId,
+    userId: safeText(userId, 120),
     expiresAt: Date.now() + 1000 * 60 * 15,
   });
   await writeOAuthStates(states.slice(-100));
@@ -897,6 +954,11 @@ const readSessions = async () => {
 
 const writeSessions = async (sessions) => writeJson(SESSIONS_FILE, { sessions });
 
+const invalidateSessionsForUser = async (userId) => {
+  const sessions = await readSessions();
+  await writeSessions(sessions.filter((session) => session.userId !== userId));
+};
+
 const withCors = (req, res) => {
   const origin = req.headers.origin;
   const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
@@ -934,15 +996,21 @@ export const handleRequest = async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const lang = requestLang(req);
 
+  if (req.method === 'POST' && !assertMutationOrigin(req, res)) {
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/health') {
+    const storageProbe = await probeStorage();
     const payload = {
-      ok: true,
+      ok: storageProbe.ok !== false,
       service: 't1d-api',
       timestamp: new Date().toISOString(),
-      storage: getStorageBackend(),
+      storage: storageProbe.backend || getStorageBackend(),
       rateLimit: isUpstashRateLimitEnabled() ? 'upstash' : 'memory',
       dexcomLive: dexcomEnvConfig().useLiveMode,
     };
+    if (storageProbe.error) payload.storageError = storageProbe.error;
     if (url.searchParams.get('verbose') === '1') {
       payload.version = process.env.npm_package_version || '1.1.0';
       payload.node = process.version;
@@ -969,8 +1037,16 @@ export const handleRequest = async (req, res) => {
     const state = safeText(url.searchParams.get('state'), 120);
     const oauthState = state ? await consumeOAuthState(state) : null;
     const redirectBase = `${SITE_URL.replace(/\/$/, '')}/workspace`;
+    const current = await findSessionUser(req);
 
-    if (!code || !oauthState) {
+    if (!code || !oauthState || !current || current.user.householdId !== oauthState.householdId) {
+      applySecurityHeaders(res);
+      res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=error` });
+      res.end();
+      return;
+    }
+
+    if (oauthState.userId && oauthState.userId !== current.user.id) {
       applySecurityHeaders(res);
       res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=error` });
       res.end();
@@ -1007,12 +1083,12 @@ export const handleRequest = async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/api/cron/dexcom-sync') {
     const authHeader = String(req.headers.authorization || '');
-    const cronSecret = CRON_SECRET || process.env.CRON_SECRET || '';
+    const cronSecret = CRON_SECRET;
     if (!cronSecret) {
-      sendJson(res, 503, { error: 'Cron secret not configured' });
+      sendJson(res, 503, { error: 'Service unavailable' });
       return;
     }
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (!safeEqualString(authHeader, `Bearer ${cronSecret}`)) {
       sendJson(res, 401, { error: 'Unauthorized cron request' });
       return;
     }
@@ -1166,7 +1242,7 @@ export const handleRequest = async (req, res) => {
           caregiverName,
           nightWindow,
           diabetesType,
-          inviteCode: existing.inviteCode || randomBytes(3).toString('hex').toUpperCase(),
+          inviteCode: existing.inviteCode || generateInviteCode(),
           members: (() => {
             const existingMembers = Array.isArray(existing.members) ? existing.members : [];
             const nextMembers = existingMembers.filter((member) => member.userId !== current.user.id);
@@ -1205,7 +1281,7 @@ export const handleRequest = async (req, res) => {
           caregiverName,
           nightWindow,
           diabetesType,
-          inviteCode: randomBytes(3).toString('hex').toUpperCase(),
+          inviteCode: generateInviteCode(),
           members: [
             {
               id: current.user.id,
@@ -1252,13 +1328,23 @@ export const handleRequest = async (req, res) => {
       return;
     }
 
+    const limit = await joinRateLimit(clientIp(req));
+    if (!limit.allowed) {
+      sendJson(res, 429, { error: t(lang, 'rateLimited') });
+      return;
+    }
+
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      sendJson(res, 413, { error: 'Request body too large' });
+      return;
+    }
     if (!body || typeof body !== 'object') {
       sendJson(res, 400, { error: 'Invalid JSON body' });
       return;
     }
 
-    const inviteCode = safeText(body.inviteCode, 24).toUpperCase();
+    const inviteCode = safeText(body.inviteCode, 40).toUpperCase();
     if (!inviteCode) {
       sendJson(res, 400, { error: 'Invite code is required' });
       return;
@@ -1286,14 +1372,8 @@ export const handleRequest = async (req, res) => {
         status: 'active',
       };
     } else {
-      nextMembers.push({
-        id: current.user.id,
-        userId: current.user.id,
-        fullName: current.user.fullName,
-        email: current.user.email,
-        role: current.user.role,
-        status: 'active',
-      });
+      sendJson(res, 403, { error: 'No invited member slot matches your role for this household' });
+      return;
     }
 
     const nextHousehold = {
@@ -1379,7 +1459,7 @@ export const handleRequest = async (req, res) => {
     const start = dexcomOAuthStart(
       households[householdIndex],
       current.user.fullName || current.user.email,
-      await createOAuthState(households[householdIndex].id)
+      await createOAuthState(households[householdIndex].id, current.user.id)
     );
     const nextHousehold = appendDexcomAudit({
       ...households[householdIndex],
@@ -1405,6 +1485,26 @@ export const handleRequest = async (req, res) => {
     }
 
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      sendJson(res, 413, { error: 'Request body too large' });
+      return;
+    }
+    if (!body || typeof body !== 'object') {
+      sendJson(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+
+    const stateToken = safeText(body.state, 120);
+    const oauthState = stateToken ? await consumeOAuthState(stateToken) : null;
+    if (!oauthState || oauthState.householdId !== current.user.householdId) {
+      sendJson(res, 400, { error: 'Invalid or expired OAuth state' });
+      return;
+    }
+    if (oauthState.userId && oauthState.userId !== current.user.id) {
+      sendJson(res, 403, { error: 'OAuth state does not match the current session' });
+      return;
+    }
+
     const households = await readHouseholds();
     const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
     if (householdIndex === -1) {
@@ -1464,6 +1564,11 @@ export const handleRequest = async (req, res) => {
     const current = await findSessionUser(req);
     if (!current) {
       sendJson(res, 401, { error: 'Unauthorized' });
+      return;
+    }
+
+    if (isProductionRuntime && !dexcomEnvConfig().useLiveMode && process.env.T1D_ALLOW_MOCK_DEXCOM !== 'true') {
+      sendJson(res, 403, { error: 'Mock Dexcom connect is disabled in production. Use OAuth live mode.' });
       return;
     }
 
@@ -1705,11 +1810,25 @@ export const handleRequest = async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/access/password-reset/confirm') {
+    const limit = await resetConfirmRateLimit(clientIp(req));
+    if (!limit.allowed) {
+      sendJson(res, 429, { error: t(lang, 'rateLimited') });
+      return;
+    }
+
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      sendJson(res, 413, { error: 'Request body too large' });
+      return;
+    }
     const token = safeText(body?.token, 120);
     const password = safeText(body?.password, 200);
     if (!token || !password) {
       sendJson(res, 400, { error: 'Token and password are required' });
+      return;
+    }
+    if (!isValidPassword(password)) {
+      sendJson(res, 400, { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
       return;
     }
 
@@ -1727,6 +1846,7 @@ export const handleRequest = async (req, res) => {
       entry.id === match.userId ? { ...entry, passwordHash: hashPassword(password) } : entry
     );
     await writeUsers(nextUsers);
+    await invalidateSessionsForUser(match.userId);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -1755,7 +1875,11 @@ export const handleRequest = async (req, res) => {
 
     if (url.pathname === '/api/access/signup') {
       if (users.some((entry) => entry.email === email)) {
-        sendJson(res, 409, { error: 'This email already has a T1D account' });
+        sendJson(res, 409, { error: 'Unable to create account with these details' });
+        return;
+      }
+      if (!isValidPassword(password)) {
+        sendJson(res, 400, { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
         return;
       }
       const nextUser = {
@@ -1812,7 +1936,17 @@ export const handleRequest = async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/feedback') {
+    const limit = await feedbackRateLimit(clientIp(req));
+    if (!limit.allowed) {
+      sendJson(res, 429, { error: t(lang, 'rateLimited') });
+      return;
+    }
+
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      sendJson(res, 413, { error: 'Request body too large' });
+      return;
+    }
     const message = safeText(body?.message, 2000);
     const rating = Math.max(1, Math.min(5, Number(body?.rating || 0) || 0));
     if (!message) {

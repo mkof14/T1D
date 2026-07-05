@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { decryptSecret, encryptSecret } from './secrets-crypto.mjs';
 
 const trendSequence = ['flat', 'down', 'down', 'flat', 'up'];
 const DEXCOM_SCOPES = 'offline_access';
@@ -192,7 +193,51 @@ export const defaultDexcomConnection = () => ({
   message: 'Dexcom is not connected yet.',
 });
 
-export const ensureDexcomConnection = (household) => household.dexcom || defaultDexcomConnection();
+export const unsealDexcomConnection = (connection) => {
+  if (!connection || typeof connection !== 'object') return defaultDexcomConnection();
+  if (connection.accessToken || connection.refreshToken) {
+    return {
+      ...connection,
+      hasRefreshToken: Boolean(connection.refreshToken || connection.hasRefreshToken),
+    };
+  }
+
+  const accessToken = connection.accessTokenEnc ? decryptSecret(connection.accessTokenEnc) : '';
+  const refreshToken = connection.refreshTokenEnc ? decryptSecret(connection.refreshTokenEnc) : '';
+  return {
+    ...connection,
+    accessToken,
+    refreshToken,
+    hasRefreshToken: Boolean(refreshToken || connection.hasRefreshToken),
+  };
+};
+
+export const sealDexcomTokens = (connection) => {
+  if (!connection || typeof connection !== 'object') return connection;
+  const unsealed = unsealDexcomConnection(connection);
+  const {
+    accessToken,
+    refreshToken,
+    accessTokenEnc: _accessTokenEnc,
+    refreshTokenEnc: _refreshTokenEnc,
+    ...rest
+  } = unsealed;
+  const next = {
+    ...rest,
+    hasRefreshToken: Boolean(refreshToken),
+  };
+
+  const sealedAccess = accessToken ? encryptSecret(accessToken) : '';
+  const sealedRefresh = refreshToken ? encryptSecret(refreshToken) : '';
+  if (sealedAccess) next.accessTokenEnc = sealedAccess;
+  else if (accessToken) next.accessToken = accessToken;
+  if (sealedRefresh) next.refreshTokenEnc = sealedRefresh;
+  else if (refreshToken) next.refreshToken = refreshToken;
+  return next;
+};
+
+export const ensureDexcomConnection = (household) =>
+  unsealDexcomConnection(household?.dexcom || defaultDexcomConnection());
 
 export const dexcomEnvConfig = () => {
   const clientId = process.env.DEXCOM_CLIENT_ID || '';

@@ -34,17 +34,17 @@ const STORAGE_KEYS = {
 } as const;
 
 const LOADING_COPY: Record<Language, string> = {
-  en: 'Opening T1D',
-  ru: 'Открываем T1D',
-  uk: 'Відкриваємо T1D',
-  es: 'Abriendo T1D',
-  fr: 'Ouverture De T1D',
-  de: 'T1D Wird Geöffnet',
-  zh: '正在打开 T1D',
-  ja: 'T1D を開いています',
-  pt: 'Abrindo T1D',
-  he: 'פותח את T1D',
-  ar: 'جار فتح T1D',
+  en: 'Opening Steady',
+  ru: 'Открываем Steady',
+  uk: 'Відкриваємо Steady',
+  es: 'Abriendo Steady',
+  fr: 'Ouverture de Steady',
+  de: 'Steady wird geöffnet',
+  zh: '正在打开 Steady',
+  ja: 'Steady を開いています',
+  pt: 'Abrindo Steady',
+  he: 'פותח את Steady',
+  ar: 'جار فتح Steady',
 };
 
 const SKIP_LINK_COPY: Record<Language, string> = {
