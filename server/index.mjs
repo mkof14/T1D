@@ -480,21 +480,7 @@ export const handleRequest = async (req, res) => {
   if (await handleHouseholdRoutes(routeCtx)) return;
   if (await handleWorkspaceRoutes(routeCtx)) return;
   if (await handleFeedbackRoutes(routeCtx)) return;
-
-  if (await handleAlertTimelineRoutes({
-    req,
-    res,
-    url,
-    lang,
-    findSessionUser,
-    readHouseholds,
-    writeHouseholds,
-    sendJson,
-    readBody,
-    BODY_TOO_LARGE,
-  })) {
-    return;
-  }
+  if (await handleAlertTimelineRoutes(routeCtx)) return;
 
   sendJson(res, 404, { error: 'Not found' });
 };

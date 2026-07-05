@@ -5,12 +5,13 @@ import { createStorage } from '../server/storage.mjs';
 import { getPool } from '../server/infrastructure/db.mjs';
 import { runMigrations } from '../server/infrastructure/db.mjs';
 import { ensureHouseholdRow } from '../server/infrastructure/repositories/household-repository.mjs';
-import { dualWriteHouseholdReadings, dualWriteUsers, dualWriteDexcomConnection } from '../server/infrastructure/repositories/dual-write-service.mjs';
+import { dualWriteHouseholdReadings, dualWriteUsers, dualWriteDexcomConnection, dualWriteAuditEvent, dualWriteAlertCreated } from '../server/infrastructure/repositories/dual-write-service.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.T1D_DATA_DIR || path.join(__dirname, '..', 'server', 'data');
 const HOUSEHOLDS_FILE = path.join(DATA_DIR, 'households.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const AUDIT_FILE = path.join(DATA_DIR, 'audit-log.json');
 
 const storage = createStorage({ dataDirectory: DATA_DIR });
 
@@ -33,11 +34,25 @@ const main = async () => {
   let householdsUpserted = 0;
   let readingsInserted = 0;
   let usersUpserted = 0;
+  let auditsUpserted = 0;
+  let alertsUpserted = 0;
   let failures = 0;
 
   const userResults = await dualWriteUsers(users);
   usersUpserted = userResults.filter((entry) => entry.ok && !entry.skipped).length;
   failures += userResults.filter((entry) => !entry.ok && !entry.skipped).length;
+
+  const auditPayload = await storage.read(AUDIT_FILE, { events: [] });
+  const auditEvents = Array.isArray(auditPayload.events) ? auditPayload.events : [];
+  for (const event of auditEvents) {
+    if (!event?.id) continue;
+    const result = await dualWriteAuditEvent(event);
+    if (result.ok && !result.skipped) auditsUpserted += 1;
+    else if (!result.ok && !result.skipped) {
+      failures += 1;
+      console.warn(`[backfill] audit ${event.id}:`, result.error || 'failed');
+    }
+  }
 
   for (const household of households) {
     if (!household?.id) continue;
@@ -68,6 +83,21 @@ const main = async () => {
       failures += 1;
       console.warn(`[backfill] dexcom ${household.id}:`, dexcomResult.error || 'failed');
     }
+
+    const eventLog = Array.isArray(household?.safetyState?.eventLog) ? household.safetyState.eventLog : [];
+    for (const entry of eventLog) {
+      if (entry?.kind !== 'alert' || !entry?.id) continue;
+      const alertResult = await dualWriteAlertCreated(
+        household,
+        entry,
+        household.safetyState?.lastDecision || { decision: 'notify' },
+      );
+      if (alertResult.ok && !alertResult.skipped) alertsUpserted += 1;
+      else if (!alertResult.ok && !alertResult.skipped) {
+        failures += 1;
+        console.warn(`[backfill] alert ${entry.id}:`, alertResult.error || 'failed');
+      }
+    }
   }
 
   console.log(JSON.stringify({
@@ -77,6 +107,9 @@ const main = async () => {
     readingsInserted,
     users: users.length,
     usersUpserted,
+    auditEvents: auditEvents.length,
+    auditsUpserted,
+    alertsUpserted,
     failures,
   }, null, 2));
 

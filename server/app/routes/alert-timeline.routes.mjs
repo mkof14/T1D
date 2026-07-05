@@ -11,19 +11,18 @@ import {
 import { queueInAppNotification } from '../../services/notification-service.mjs';
 import { dualWriteAlertResponderAction } from '../../infrastructure/repositories/dual-write-service.mjs';
 
-export const handleAlertTimelineRoutes = async ({
-  req,
-  res,
-  url,
-  lang,
-  findSessionUser,
-  readHouseholds,
-  writeHouseholds,
-  persistHouseholdUpdate,
-  sendJson,
-  readBody,
-  BODY_TOO_LARGE,
-}) => {
+export const handleAlertTimelineRoutes = async (ctx) => {
+  const {
+    req,
+    res,
+    url,
+    findSessionUser,
+    readHouseholds,
+    persistHouseholdUpdate,
+    sendJson,
+    readBody,
+    BODY_TOO_LARGE,
+  } = ctx;
   const pathname = url.pathname;
 
   if (req.method === 'GET' && pathname.startsWith('/api/timeline/')) {

@@ -4,6 +4,12 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **Bug fix:** alert timeline mutations now receive `persistHouseholdUpdate` via shared route context (was broken at runtime)
+- **Backfill** — also syncs historical `audit-log.json` events and alert entries from household `eventLog`
+- **Integration test** — acknowledge endpoint returns 409 when no active alert (guards route wiring)
+
+## Completed without you (prior pass)
+
 - **Audit SQL dual-write** — safety/nutrition audit events mirrored to `audit_events` table
 - **compare:sql** — reports audit parity as informational note (historical KV events may differ)
 - **JOINT_SESSION.md** — backfill + shadow mode steps after Neon rotation
