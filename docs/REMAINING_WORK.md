@@ -47,7 +47,8 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 | Phase | Task |
 |-------|------|
 | **C** | Run `npm run db:backfill` on production after verifying household rows |
-| **2** | Extract auth/household/dexcom routes from `server/index.mjs` |
+| **2** | Extract nutrition/action/feedback routes from `server/index.mjs` |
+| **2 done** | Auth, household, dexcom routes → `server/app/routes/` |
 
 ---
 

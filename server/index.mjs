@@ -18,16 +18,11 @@ import {
   timelineForStage,
 } from './state-machine.mjs';
 import {
-  connectDexcom,
-  dexcomOAuthCallback,
-  dexcomOAuthStart,
   dexcomPayloadForHousehold,
   dexcomEnvConfig,
-  disconnectDexcom,
   ensureDexcomConnection,
   pollDexcom,
   pollDexcomLive,
-  refreshDexcomToken,
   sealDexcomTokens,
 } from './dexcom-service.mjs';
 import { startDexcomSyncWorker } from './sync-worker.mjs';
@@ -39,12 +34,6 @@ import { localizeWorkspacePayload } from './workspace-i18n.mjs';
 import { appendAuditEvent } from './audit-log.mjs';
 import { applySecurityHeaders } from './security-headers.mjs';
 import { attachRequestContext } from './request-context.mjs';
-import {
-  buildGoogleAuthUrl,
-  exchangeGoogleCode,
-  fetchGoogleProfile,
-  isGoogleAuthEnabled,
-} from './google-auth.mjs';
 import { defaultSafetyPreferences, normalizeDiabetesType } from './diabetes-type.mjs';
 import {
   analyzeMealInput,
@@ -52,6 +41,9 @@ import {
   buildNutritionPayload,
 } from './nutrition-service.mjs';
 import { handleAlertTimelineRoutes } from './app/routes/alert-timeline.routes.mjs';
+import { handleAuthRoutes } from './app/routes/auth.routes.mjs';
+import { handleHouseholdRoutes } from './app/routes/household.routes.mjs';
+import { handleDexcomRoutes } from './app/routes/dexcom.routes.mjs';
 import { ALERT_RULE_VERSION } from './domain/alerts/alert-rules.mjs';
 import { dualWritePollReadings } from './infrastructure/repositories/dual-write-service.mjs';
 
@@ -996,6 +988,58 @@ const findSessionUser = async (req) => {
   return { session, user };
 };
 
+const buildRouteContext = (req, res, url, lang) => ({
+  req,
+  res,
+  url,
+  lang,
+  sendJson,
+  readBody,
+  BODY_TOO_LARGE,
+  findSessionUser,
+  readHouseholds,
+  writeHouseholds,
+  updateUser,
+  readUsers,
+  writeUsers,
+  readSessions,
+  writeSessions,
+  readPasswordResets,
+  writePasswordResets,
+  createSessionForUser,
+  hashPassword,
+  verifyPassword,
+  invalidateSessionsForUser,
+  parseCookies,
+  SESSION_COOKIE,
+  clearSessionCookie,
+  createSessionCookie,
+  SITE_URL,
+  isProductionRuntime,
+  authRateLimit,
+  joinRateLimit,
+  resetConfirmRateLimit,
+  clientIp,
+  t,
+  normalizeEmail,
+  safeText,
+  safeRole,
+  isValidPassword,
+  MIN_PASSWORD_LENGTH,
+  generateInviteCode,
+  normalizeDiabetesType,
+  defaultSafetyPreferences,
+  createDefaultSafetyState,
+  buildWorkspacePayloadForRequest,
+  createGoogleOAuthState,
+  consumeOAuthState,
+  resolveGoogleUser,
+  redirectWithSession,
+  createOAuthState,
+  appendDexcomAudit,
+  applyDexcomPollToHousehold,
+});
+
 export const handleRequest = async (req, res) => {
   withCors(req, res);
   attachRequestContext(req, res);
@@ -1045,55 +1089,6 @@ export const handleRequest = async (req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/dexcom/oauth/callback') {
-    const code = safeText(url.searchParams.get('code'), 240);
-    const state = safeText(url.searchParams.get('state'), 120);
-    const oauthState = state ? await consumeOAuthState(state) : null;
-    const redirectBase = `${SITE_URL.replace(/\/$/, '')}/workspace`;
-    const current = await findSessionUser(req);
-
-    if (!code || !oauthState || !current || current.user.householdId !== oauthState.householdId) {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=error` });
-      res.end();
-      return;
-    }
-
-    if (oauthState.userId && oauthState.userId !== current.user.id) {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=error` });
-      res.end();
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === oauthState.householdId);
-    if (householdIndex === -1) {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=error` });
-      res.end();
-      return;
-    }
-
-    const nextDexcom = await dexcomOAuthCallback(households[householdIndex], code);
-    households[householdIndex] = appendDexcomAudit({
-      ...households[householdIndex],
-      dexcom: nextDexcom,
-      updatedAt: new Date().toISOString(),
-    }, {
-      kind: 'oauth_callback',
-      status: nextDexcom.status === 'connected' ? 'ok' : 'error',
-      headline: 'Dexcom OAuth callback',
-      detail: nextDexcom.message,
-    });
-    await writeHouseholds(households);
-    const status = nextDexcom.status === 'connected' ? 'success' : 'error';
-    applySecurityHeaders(res);
-    res.writeHead(302, { Location: `${redirectBase}?dexcom_auth=${status}` });
-    res.end();
-    return;
-  }
-
   if (req.method === 'GET' && url.pathname === '/api/cron/dexcom-sync') {
     const authHeader = String(req.headers.authorization || '');
     const cronSecret = CRON_SECRET;
@@ -1110,557 +1105,11 @@ export const handleRequest = async (req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/session') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 200, { authenticated: false });
-      return;
-    }
-    sendJson(res, 200, {
-      authenticated: true,
-      user: {
-        email: current.user.email,
-        fullName: current.user.fullName,
-        role: current.user.role,
-        organization: current.user.organization || '',
-      },
-    });
-    return;
-  }
 
-  if (req.method === 'GET' && url.pathname === '/api/access/google/status') {
-    sendJson(res, 200, {
-      enabled: isGoogleAuthEnabled(),
-      startPath: '/api/access/google/start',
-    });
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/access/google/start') {
-    if (!isGoogleAuthEnabled()) {
-      sendJson(res, 503, { error: 'Google sign-in is not configured' });
-      return;
-    }
-
-    const limit = await authRateLimit(clientIp(req));
-    if (!limit.allowed) {
-      sendJson(res, 429, { error: t(lang, 'rateLimited') });
-      return;
-    }
-
-    const mode = url.searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
-    const role = safeRole(url.searchParams.get('role'));
-    const state = await createGoogleOAuthState({ mode, role });
-    applySecurityHeaders(res);
-    res.writeHead(302, { Location: buildGoogleAuthUrl(state) });
-    res.end();
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/access/google/callback') {
-    const code = safeText(url.searchParams.get('code'), 240);
-    const stateToken = safeText(url.searchParams.get('state'), 120);
-    const oauthState = stateToken ? await consumeOAuthState(stateToken) : null;
-    const errorRedirect = `${SITE_URL.replace(/\/$/, '')}/access?google_auth=error`;
-
-    if (!code || !oauthState || oauthState.kind !== 'google') {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: errorRedirect });
-      res.end();
-      return;
-    }
-
-    try {
-      const tokenPayload = await exchangeGoogleCode(code);
-      const profile = await fetchGoogleProfile(tokenPayload.access_token);
-      const resolved = await resolveGoogleUser({
-        profile,
-        mode: oauthState.mode,
-        role: oauthState.role,
-      });
-
-      if (resolved.error === 'no_account') {
-        applySecurityHeaders(res);
-        res.writeHead(302, { Location: `${SITE_URL.replace(/\/$/, '')}/create-account?google_auth=no_account` });
-        res.end();
-        return;
-      }
-
-      if (resolved.error || !resolved.user) {
-        applySecurityHeaders(res);
-        res.writeHead(302, { Location: errorRedirect });
-        res.end();
-        return;
-      }
-
-      const targetPath = resolved.user.householdId ? '/workspace' : '/household-setup';
-      await redirectWithSession(res, req, resolved.user, targetPath);
-    } catch {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: errorRedirect });
-      res.end();
-    }
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/workspace') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-    const households = await readHouseholds();
-    const household = households.find((entry) => entry.id === current.user.householdId) || null;
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, household));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/household/setup') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (!body || typeof body !== 'object') {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
-
-    const householdName = safeText(body.householdName, 120);
-    const childName = safeText(body.childName, 120);
-    const childAgeBand = safeText(body.childAgeBand, 40);
-    const primaryParent = safeText(body.primaryParent, 120);
-    const caregiverName = safeText(body.caregiverName, 120);
-    const nightWindow = safeText(body.nightWindow, 60);
-
-    if (!householdName || !childName || !primaryParent || !nightWindow) {
-      sendJson(res, 400, { error: 'Household name, child, parent, and night window are required' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const existing = households.find((entry) => entry.id === current.user.householdId);
-    const diabetesType = normalizeDiabetesType(body.diabetesType ?? existing?.diabetesType);
-    const initialSafetyState = createDefaultSafetyState({ primaryParent, caregiverName });
-    const existingSafetyState = existing?.safetyState || initialSafetyState;
-    const nextHousehold = existing
-      ? {
-          ...existing,
-          householdName,
-          childName,
-          childAgeBand,
-          primaryParent,
-          caregiverName,
-          nightWindow,
-          diabetesType,
-          inviteCode: existing.inviteCode || generateInviteCode(),
-          members: (() => {
-            const existingMembers = Array.isArray(existing.members) ? existing.members : [];
-            const nextMembers = existingMembers.filter((member) => member.userId !== current.user.id);
-            nextMembers.unshift({
-              id: current.user.id,
-              userId: current.user.id,
-              fullName: current.user.fullName,
-              email: current.user.email,
-              role: current.user.role,
-              status: 'active',
-            });
-            if (caregiverName) {
-              const hasCaregiverInvite = nextMembers.some((member) => member.role === 'caregiver' && member.status === 'invited');
-              if (!hasCaregiverInvite) {
-                nextMembers.push({
-                  id: `invite-${randomBytes(4).toString('hex')}`,
-                  fullName: caregiverName,
-                  email: '',
-                  role: 'caregiver',
-                  status: 'invited',
-                });
-              }
-            }
-            return nextMembers;
-          })(),
-          safetyPreferences: existing.safetyPreferences || defaultSafetyPreferences(diabetesType),
-          safetyState: existingSafetyState,
-          updatedAt: new Date().toISOString(),
-        }
-      : {
-          id: randomBytes(10).toString('hex'),
-          householdName,
-          childName,
-          childAgeBand,
-          primaryParent,
-          caregiverName,
-          nightWindow,
-          diabetesType,
-          inviteCode: generateInviteCode(),
-          members: [
-            {
-              id: current.user.id,
-              userId: current.user.id,
-              fullName: current.user.fullName,
-              email: current.user.email,
-              role: current.user.role,
-              status: 'active',
-            },
-            ...(caregiverName
-              ? [{
-                  id: `invite-${randomBytes(4).toString('hex')}`,
-                  fullName: caregiverName,
-                  email: '',
-                  role: 'caregiver',
-                  status: 'invited',
-                }]
-              : []),
-          ],
-          safetyPreferences: defaultSafetyPreferences(diabetesType),
-          safetyState: initialSafetyState,
-          createdBy: current.user.id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-    const nextHouseholds = existing
-      ? households.map((entry) => (entry.id === existing.id ? nextHousehold : entry))
-      : [...households, nextHousehold];
-
-    await writeHouseholds(nextHouseholds);
-    await updateUser(current.user.id, { householdId: nextHousehold.id });
-
-    sendJson(res, 200, {
-      household: buildWorkspacePayloadForRequest(req, current.user, nextHousehold).household,
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/household/join') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const limit = await joinRateLimit(clientIp(req));
-    if (!limit.allowed) {
-      sendJson(res, 429, { error: t(lang, 'rateLimited') });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (body === BODY_TOO_LARGE) {
-      sendJson(res, 413, { error: 'Request body too large' });
-      return;
-    }
-    if (!body || typeof body !== 'object') {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
-
-    const inviteCode = safeText(body.inviteCode, 40).toUpperCase();
-    if (!inviteCode) {
-      sendJson(res, 400, { error: 'Invite code is required' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.inviteCode === inviteCode);
-    if (householdIndex === -1) {
-      sendJson(res, 404, { error: 'Invite code was not found' });
-      return;
-    }
-
-    const household = households[householdIndex];
-    const existingMembers = Array.isArray(household.members) ? household.members : [];
-    const nextMembers = existingMembers.filter((member) => member.userId !== current.user.id);
-    const invitedMatchIndex = nextMembers.findIndex((member) => member.status === 'invited' && member.role === current.user.role);
-
-    if (invitedMatchIndex >= 0) {
-      nextMembers[invitedMatchIndex] = {
-        ...nextMembers[invitedMatchIndex],
-        id: current.user.id,
-        userId: current.user.id,
-        fullName: current.user.fullName,
-        email: current.user.email,
-        status: 'active',
-      };
-    } else {
-      sendJson(res, 403, { error: 'No invited member slot matches your role for this household' });
-      return;
-    }
-
-    const nextHousehold = {
-      ...household,
-      members: nextMembers,
-      updatedAt: new Date().toISOString(),
-    };
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    await updateUser(current.user.id, { householdId: nextHousehold.id });
-
-    sendJson(res, 200, {
-      household: buildWorkspacePayloadForRequest(req, current.user, nextHousehold).household,
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/preferences') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (!body || typeof body !== 'object') {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
-
-    const daySensitivity = ['gentle', 'balanced', 'watchful'].includes(body.daySensitivity) ? body.daySensitivity : 'balanced';
-    const nightSensitivity = ['balanced', 'protective', 'urgent'].includes(body.nightSensitivity) ? body.nightSensitivity : 'protective';
-    const caregiverDelaySeconds = [20, 40, 60].includes(Number(body.caregiverDelaySeconds)) ? Number(body.caregiverDelaySeconds) : 60;
-    const normalizePrimaryContact = (value, household) => {
-      if (!['parent', 'adult', 'caregiver'].includes(value)) return 'parent';
-      if (value === 'caregiver' && !safeText(household?.caregiverName, 120)) return 'parent';
-      return value;
-    };
-    const households = await readHouseholds();
-    const currentHousehold = households.find((entry) => entry.id === current.user.householdId);
-    const dayPrimaryContact = normalizePrimaryContact(body.dayPrimaryContact, currentHousehold);
-    const nightPrimaryContact = normalizePrimaryContact(body.nightPrimaryContact, currentHousehold);
-    const glucoseUnit = body.glucoseUnit === 'mmol/L' ? 'mmol/L' : 'mg/dL';
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const nextHousehold = {
-      ...households[householdIndex],
-      safetyPreferences: {
-        daySensitivity,
-        nightSensitivity,
-        caregiverDelaySeconds,
-        dayPrimaryContact,
-        nightPrimaryContact,
-        glucoseUnit,
-      },
-      updatedAt: new Date().toISOString(),
-    };
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-
-  if (req.method === 'POST' && url.pathname === '/api/dexcom/oauth/start') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const start = dexcomOAuthStart(
-      households[householdIndex],
-      current.user.fullName || current.user.email,
-      await createOAuthState(households[householdIndex].id, current.user.id)
-    );
-    const nextHousehold = appendDexcomAudit({
-      ...households[householdIndex],
-      dexcom: start.dexcom,
-      updatedAt: new Date().toISOString(),
-    }, {
-      kind: 'oauth_start',
-      status: start.dexcom.configStatus === 'ready' ? 'ok' : 'warning',
-      headline: 'Dexcom OAuth start',
-      detail: start.dexcom.message,
-    });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, { workspace: buildWorkspacePayloadForRequest(req, current.user, nextHousehold), redirectUrl: start.redirectUrl });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/dexcom/oauth/callback') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (body === BODY_TOO_LARGE) {
-      sendJson(res, 413, { error: 'Request body too large' });
-      return;
-    }
-    if (!body || typeof body !== 'object') {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
-
-    const stateToken = safeText(body.state, 120);
-    const oauthState = stateToken ? await consumeOAuthState(stateToken) : null;
-    if (!oauthState || oauthState.householdId !== current.user.householdId) {
-      sendJson(res, 400, { error: 'Invalid or expired OAuth state' });
-      return;
-    }
-    if (oauthState.userId && oauthState.userId !== current.user.id) {
-      sendJson(res, 403, { error: 'OAuth state does not match the current session' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const nextDexcom = await dexcomOAuthCallback(households[householdIndex], safeText(body?.code, 240));
-    const nextHousehold = appendDexcomAudit({
-      ...households[householdIndex],
-      dexcom: nextDexcom,
-      updatedAt: new Date().toISOString(),
-    }, {
-      kind: 'oauth_callback',
-      status: nextDexcom.status === 'connected' ? 'ok' : 'error',
-      headline: 'Dexcom OAuth callback',
-      detail: nextDexcom.message,
-    });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/dexcom/refresh-token') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const nextDexcom = await refreshDexcomToken(households[householdIndex]);
-    const nextHousehold = appendDexcomAudit({
-      ...households[householdIndex],
-      dexcom: nextDexcom,
-      updatedAt: new Date().toISOString(),
-    }, {
-      kind: 'token_refresh',
-      status: nextDexcom.status === 'connected' ? 'ok' : 'error',
-      headline: 'Dexcom token refresh',
-      detail: nextDexcom.message,
-    });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/dexcom/connect') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    if (isProductionRuntime && !dexcomEnvConfig().useLiveMode && process.env.T1D_ALLOW_MOCK_DEXCOM !== 'true') {
-      sendJson(res, 403, { error: 'Mock Dexcom connect is disabled in production. Use OAuth live mode.' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const body = await readBody(req);
-    const nextDexcom = connectDexcom(households[householdIndex], safeText(body?.accountName, 120) || current.user.fullName || current.user.email);
-    const nextHousehold = appendDexcomAudit({
-      ...households[householdIndex],
-      dexcom: nextDexcom,
-      updatedAt: new Date().toISOString(),
-    }, {
-      kind: 'connect',
-      status: 'ok',
-      headline: 'Dexcom connected',
-      detail: nextDexcom.message,
-    });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/dexcom/disconnect') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const nextDexcom = disconnectDexcom(households[householdIndex]);
-    const nextHousehold = appendDexcomAudit({
-      ...households[householdIndex],
-      dexcom: nextDexcom,
-      updatedAt: new Date().toISOString(),
-    }, {
-      kind: 'disconnect',
-      status: 'warning',
-      headline: 'Dexcom disconnected',
-      detail: nextDexcom.message,
-    });
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/dexcom/poll') {
-    const current = await findSessionUser(req);
-    if (!current) {
-      sendJson(res, 401, { error: 'Unauthorized' });
-      return;
-    }
-
-    const households = await readHouseholds();
-    const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
-    if (householdIndex === -1) {
-      sendJson(res, 400, { error: 'Household setup is required first' });
-      return;
-    }
-
-    const nextHousehold = await applyDexcomPollToHousehold(households[householdIndex], 'manual');
-    households[householdIndex] = nextHousehold;
-    await writeHouseholds(households);
-    sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
+  const routeCtx = buildRouteContext(req, res, url, lang);
+  if (await handleDexcomRoutes(routeCtx)) return;
+  if (await handleAuthRoutes(routeCtx)) return;
+  if (await handleHouseholdRoutes(routeCtx)) return;
 
   if (req.method === 'POST' && url.pathname === '/api/nutrition/analyze') {
     const current = await findSessionUser(req);
@@ -1770,181 +1219,6 @@ export const handleRequest = async (req, res) => {
       stage: nextSafetyState.stage,
     });
     sendJson(res, 200, buildWorkspacePayloadForRequest(req, current.user, nextHousehold));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/access/signout') {
-    const cookies = parseCookies(req.headers.cookie);
-    const sid = cookies[SESSION_COOKIE];
-    if (sid) {
-      const sessions = await readSessions();
-      await writeSessions(sessions.filter((entry) => entry.id !== sid));
-    }
-    sendJson(res, 200, { ok: true }, { 'Set-Cookie': clearSessionCookie() });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/access/password-reset/request') {
-    const limit = await authRateLimit(clientIp(req));
-    if (!limit.allowed) {
-      sendJson(res, 429, { error: t(lang, 'rateLimited') });
-      return;
-    }
-
-    const body = await readBody(req);
-    const email = normalizeEmail(body?.email);
-    if (!email) {
-      sendJson(res, 400, { error: 'Email is required' });
-      return;
-    }
-
-    const users = await readUsers();
-    const user = users.find((entry) => entry.email === email);
-    if (user) {
-      const tokens = await readPasswordResets();
-      const token = randomBytes(18).toString('hex');
-      tokens.push({
-        token,
-        userId: user.id,
-        email,
-        expiresAt: Date.now() + 1000 * 60 * 60,
-      });
-      await writePasswordResets(tokens.slice(-200));
-    }
-
-    sendJson(res, 200, {
-      ok: true,
-      message: t(lang, 'passwordResetSent'),
-      resetToken: process.env.T1D_EXPOSE_RESET_TOKEN === 'true' && user
-        ? (await readPasswordResets()).find((entry) => entry.email === email)?.token
-        : undefined,
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/access/password-reset/confirm') {
-    const limit = await resetConfirmRateLimit(clientIp(req));
-    if (!limit.allowed) {
-      sendJson(res, 429, { error: t(lang, 'rateLimited') });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (body === BODY_TOO_LARGE) {
-      sendJson(res, 413, { error: 'Request body too large' });
-      return;
-    }
-    const token = safeText(body?.token, 120);
-    const password = safeText(body?.password, 200);
-    if (!token || !password) {
-      sendJson(res, 400, { error: 'Token and password are required' });
-      return;
-    }
-    if (!isValidPassword(password)) {
-      sendJson(res, 400, { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
-      return;
-    }
-
-    const tokens = await readPasswordResets();
-    const matchIndex = tokens.findIndex((entry) => entry.token === token);
-    if (matchIndex === -1) {
-      sendJson(res, 400, { error: t(lang, 'invalidResetToken') });
-      return;
-    }
-
-    const [match] = tokens.splice(matchIndex, 1);
-    await writePasswordResets(tokens);
-    const users = await readUsers();
-    const nextUsers = users.map((entry) =>
-      entry.id === match.userId ? { ...entry, passwordHash: hashPassword(password) } : entry
-    );
-    await writeUsers(nextUsers);
-    await invalidateSessionsForUser(match.userId);
-    sendJson(res, 200, { ok: true });
-    return;
-  }
-
-  if (req.method === 'POST' && (url.pathname === '/api/access/signin' || url.pathname === '/api/access/signup')) {
-    const limit = await authRateLimit(clientIp(req));
-    if (!limit.allowed) {
-      sendJson(res, 429, { error: t(lang, 'rateLimited') });
-      return;
-    }
-
-    const body = await readBody(req);
-    if (!body || typeof body !== 'object') {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
-
-    const email = normalizeEmail(body.email);
-    const password = safeText(body.password, 200);
-    if (!email || !password) {
-      sendJson(res, 400, { error: 'Email and password are required' });
-      return;
-    }
-
-    const users = await readUsers();
-
-    if (url.pathname === '/api/access/signup') {
-      if (users.some((entry) => entry.email === email)) {
-        sendJson(res, 409, { error: 'Unable to create account with these details' });
-        return;
-      }
-      if (!isValidPassword(password)) {
-        sendJson(res, 400, { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
-        return;
-      }
-      const nextUser = {
-        id: randomBytes(12).toString('hex'),
-        email,
-        passwordHash: hashPassword(password),
-        fullName: safeText(body.fullName, 120) || 'T1D Member',
-        role: safeRole(body.role),
-        organization: safeText(body.organization, 120),
-        createdAt: new Date().toISOString(),
-      };
-      users.push(nextUser);
-      await writeUsers(users);
-
-      const nextSession = await createSessionForUser(nextUser.id);
-
-      sendJson(
-        res,
-        201,
-        {
-          user: {
-            email: nextUser.email,
-            fullName: nextUser.fullName,
-            role: nextUser.role,
-            organization: nextUser.organization,
-          },
-        },
-        { 'Set-Cookie': createSessionCookie(nextSession.id, req) }
-      );
-      return;
-    }
-
-    const existing = users.find((entry) => entry.email === email);
-    if (!existing || !existing.passwordHash || !verifyPassword(password, existing.passwordHash)) {
-      sendJson(res, 401, { error: 'Email or password is incorrect' });
-      return;
-    }
-
-    const nextSession = await createSessionForUser(existing.id);
-    sendJson(
-      res,
-      200,
-      {
-        user: {
-          email: existing.email,
-          fullName: existing.fullName,
-          role: existing.role,
-          organization: existing.organization || '',
-        },
-      },
-      { 'Set-Cookie': createSessionCookie(nextSession.id, req) }
-    );
     return;
   }
 
