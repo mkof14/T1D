@@ -12,6 +12,7 @@ export const handleHouseholdRoutes = async (ctx) => {
     findSessionUser,
     readHouseholds,
     writeHouseholds,
+    mirrorHouseholdToSql,
     updateUser,
     joinRateLimit,
     clientIp,
@@ -147,6 +148,7 @@ export const handleHouseholdRoutes = async (ctx) => {
       : [...households, nextHousehold];
 
     await writeHouseholds(nextHouseholds);
+    mirrorHouseholdToSql(nextHousehold);
     await updateUser(current.user.id, { householdId: nextHousehold.id });
 
     sendJson(res, 200, {
@@ -217,6 +219,7 @@ export const handleHouseholdRoutes = async (ctx) => {
     };
     households[householdIndex] = nextHousehold;
     await writeHouseholds(households);
+    mirrorHouseholdToSql(nextHousehold);
     await updateUser(current.user.id, { householdId: nextHousehold.id });
 
     sendJson(res, 200, {

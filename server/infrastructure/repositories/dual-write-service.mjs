@@ -58,6 +58,26 @@ export const dualWritePollReadings = async (household, previousReadings = [], ne
   }
 };
 
+export const dualWriteHouseholdSnapshot = async (household) => {
+  if (!household?.id) {
+    return { ok: true, skipped: true, reason: 'missing_household' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await ensureHouseholdRow(pool, household);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'household_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
 export const dualWriteHouseholdReadings = async (household) => {
   const readings = household?.dexcom?.readings || [];
   return dualWritePollReadings(household, [], readings);

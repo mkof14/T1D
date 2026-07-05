@@ -32,7 +32,7 @@ import { handleFeedbackRoutes } from './app/routes/feedback.routes.mjs';
 import { handleSystemRoutes } from './app/routes/system.routes.mjs';
 import { buildWorkspacePayloadForRequest } from './services/workspace-payload-service.mjs';
 import { createAuthStorage } from './services/auth-storage.mjs';
-import { dualWritePollReadings } from './infrastructure/repositories/dual-write-service.mjs';
+import { dualWritePollReadings, dualWriteHouseholdSnapshot } from './infrastructure/repositories/dual-write-service.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -205,6 +205,14 @@ const {
 
 const findSessionUser = async (req) => authStorage.findSessionUser(req, parseCookies);
 
+const mirrorHouseholdToSql = (household) => {
+  void dualWriteHouseholdSnapshot(household).then((result) => {
+    if (!result.ok && !result.skipped) {
+      console.warn('[t1d-api] household dual-write failed', result.error);
+    }
+  });
+};
+
 const sendJson = (res, status, payload, headers = {}) => {
   applySecurityHeaders(res);
   res.writeHead(status, {
@@ -364,6 +372,7 @@ const buildRouteContext = (req, res, url, lang) => ({
   findSessionUser,
   readHouseholds,
   writeHouseholds,
+  mirrorHouseholdToSql,
   updateUser,
     readUsers,
     writeUsers,

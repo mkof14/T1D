@@ -71,6 +71,6 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 ## Recommended next step together
 
-**15-minute session:** Neon password + Google redirect URI — unblocks production sign-in.
+**15-minute session:** follow `docs/JOINT_SESSION.md` — Neon password rotation + Google OAuth redirect URI.
 
 Then Dexcom live when you have developer credentials.

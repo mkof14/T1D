@@ -21,7 +21,8 @@
     "verify:prod": "node scripts/verify-production-env.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "db:migrate": "node -e \"import('./server/infrastructure/db.mjs').then(m => m.runMigrations()).then(console.log)\"",
-    "db:backfill": "node scripts/backfill-kv-to-sql.mjs"
+    "db:backfill": "node scripts/backfill-kv-to-sql.mjs",
+    "verify:neon": "node scripts/verify-neon-state.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.575.0",
