@@ -4,6 +4,11 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
+- **`create-app.mjs`** — full API bootstrap extracted from `index.mjs` (~35-line entrypoint)
+- **Integration tests** — duplicate signup 409 + health `sqlRead` field
+
+## Completed without you (prior pass)
+
 - **HTTP/password libs** — extracted `password.mjs`, `request-utils.mjs`, `http-response.mjs` from `index.mjs`
 - **Default member name** — signup/Google fallback uses `Steady Member` instead of `T1D Member`
 - **Password unit tests** added

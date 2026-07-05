@@ -35,6 +35,7 @@ describe('api handlers', () => {
     expect(response.status).toBe(200);
     expect(response.json().ok).toBe(true);
     expect(response.json().requestId).toBe('test-health-id');
+    expect(typeof response.json().sqlRead).toBe('string');
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['x-frame-options']).toBe('DENY');
     expect(response.headers['x-request-id']).toBe('test-health-id');
@@ -155,6 +156,32 @@ describe('api handlers', () => {
     });
     expect(feedback.status).toBe(201);
     expect(feedback.json()).toEqual({ ok: true });
+  });
+
+  it('rejects duplicate signup with conflict', async () => {
+    const email = `duplicate-${Date.now()}@example.com`;
+    const body = {
+      email,
+      password: 'IntegrationPass123!',
+      fullName: 'Duplicate Parent',
+      role: 'parent',
+    };
+    const first = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/access/signup',
+      headers: { 'content-type': 'application/json' },
+      body,
+    });
+    expect(first.status).toBe(201);
+
+    const second = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/access/signup',
+      headers: { 'content-type': 'application/json' },
+      body,
+    });
+    expect(second.status).toBe(409);
+    expect(second.json().error).toBe('Unable to create account with these details');
   });
 
   it('rejects feedback without a message', async () => {
