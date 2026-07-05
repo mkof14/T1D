@@ -1,13 +1,36 @@
-# T1D Project
+# T1D / Steady
 
-Standalone Type 1 Diabetes daily-support app for families.
+Family response and coordination system around CGM events.
 
 ## What this app includes
 
-- React + Vite frontend with 11-language public site and safety workspace
-- Node API for auth, household setup, safety state, Dexcom integration, and alert engine
-- Durable storage via Postgres when `DATABASE_URL` is set, JSON fallback for local dev
-- Vercel-ready SPA routing, serverless API adapter, and cron-based Dexcom sync
+- React + Vite frontend with safety workspace and family coordination UI
+- Node API: auth, household, Dexcom ingestion, versioned alert engine, timeline, responder ownership
+- Postgres when `DATABASE_URL` is set (KV adapter today; relational migration in progress)
+- Vercel SPA + serverless API
+
+## Never commit secrets or runtime health data
+
+Do **not** commit:
+
+- `.env.local`, real API keys, OAuth secrets, `DATABASE_URL` with passwords
+- `server/data/*.json`, `.tmp-e2e-data/`, Playwright/Lighthouse reports
+- Personal emails, invite codes, session exports
+
+Before push:
+
+```bash
+npm run scan:secrets
+npm run test:unit
+```
+
+See `docs/SECURITY_NOTES.md` and `docs/DATA_RETENTION.md`.
+
+## Architecture docs
+
+- `docs/IMPLEMENTATION_PLAN.md` — production refactor phases
+- `docs/DATABASE_MIGRATION_PLAN.md` — relational schema migration
+- `docs/GO_LIVE_CHECKLIST.md` — release gates
 
 ## Local development
 

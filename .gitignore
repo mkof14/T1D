@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 node_modules/
 dist/
 .vercel/
@@ -12,3 +13,5 @@ test-results/
 .vite/
 *.log
 .DS_Store
+__MACOSX/
+**/__MACOSX/

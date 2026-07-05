@@ -18,7 +18,9 @@
     "perf:budget": "node scripts/perf-budget.mjs",
     "release:ready": "node scripts/release-ready.mjs",
     "smoke:deploy": "node scripts/post-deploy-smoke.mjs",
-    "verify:prod": "node scripts/verify-production-env.mjs"
+    "verify:prod": "node scripts/verify-production-env.mjs",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "db:migrate": "node -e \"import('./server/infrastructure/db.mjs').then(m => m.runMigrations()).then(console.log)\""
   },
   "dependencies": {
     "lucide-react": "^0.575.0",

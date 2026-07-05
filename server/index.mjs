@@ -51,6 +51,8 @@ import {
   appendMealToHousehold,
   buildNutritionPayload,
 } from './nutrition-service.mjs';
+import { handleAlertTimelineRoutes } from './app/routes/alert-timeline.routes.mjs';
+import { ALERT_RULE_VERSION } from './domain/alerts/alert-rules.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1009,6 +1011,7 @@ export const handleRequest = async (req, res) => {
       storage: storageProbe.backend || getStorageBackend(),
       rateLimit: isUpstashRateLimitEnabled() ? 'upstash' : 'memory',
       dexcomLive: dexcomEnvConfig().useLiveMode,
+      alertRuleVersion: ALERT_RULE_VERSION,
     };
     if (storageProbe.error) payload.storageError = storageProbe.error;
     if (url.searchParams.get('verbose') === '1') {
@@ -1967,6 +1970,21 @@ export const handleRequest = async (req, res) => {
     });
     await writeJson(FEEDBACK_FILE, { entries: entries.slice(0, 200) });
     sendJson(res, 201, { ok: true });
+    return;
+  }
+
+  if (await handleAlertTimelineRoutes({
+    req,
+    res,
+    url,
+    lang,
+    findSessionUser,
+    readHouseholds,
+    writeHouseholds,
+    sendJson,
+    readBody,
+    BODY_TOO_LARGE,
+  })) {
     return;
   }
 

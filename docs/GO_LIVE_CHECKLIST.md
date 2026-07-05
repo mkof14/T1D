@@ -31,12 +31,19 @@ Use this list before the first production release. It complements `npm run relea
 
 ## Security
 
+- [ ] `npm run scan:secrets` passes
 - [ ] Vercel security headers active (CSP, HSTS, frame denial)
 - [ ] Cron endpoint rejects requests without configured secret
 - [ ] API security headers verified on `/api/health`
+- [ ] `T1D_SECRETS_KEY` set in production for token encryption
+- [ ] No runtime JSON health data in git
 
 ## Safety product review
 
+- [ ] Alert rule version `ALERT_RULE_VERSION` documented and reviewed
+- [ ] Alert simulation scenarios reviewed (`tests/unit/alert-replay.test.mjs`)
+- [ ] Timeline API verified (`GET /api/timeline/:patientId`)
+- [ ] Responder ownership flows tested (acknowledge / take-ownership / resolve)
 - [ ] Alert thresholds reviewed with product/medical advisor
 - [ ] Quick actions and escalation paths tested on staging
 - [ ] Password reset flow tested end-to-end

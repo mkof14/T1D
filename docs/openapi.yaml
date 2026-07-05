@@ -218,6 +218,62 @@ paths:
           description: Sync result
         '401':
           description: Unauthorized cron request
+  /timeline/{patientId}:
+    get:
+      summary: Patient event timeline (readings, alerts, notifications, system warnings)
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: patientId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unified timeline
+        '401':
+          description: Unauthorized
+  /alerts/{alertId}/timeline:
+    get:
+      summary: Alert-specific timeline
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: alertId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert timeline
+  /alerts/{alertId}/acknowledge:
+    post:
+      summary: Acknowledge an active alert
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Acknowledged
+        '409':
+          description: Conflict (another responder active)
+  /alerts/{alertId}/take-ownership:
+    post:
+      summary: Take responder ownership of an alert
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Ownership recorded
+  /alerts/{alertId}/resolve:
+    post:
+      summary: Resolve an alert event
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Resolved
   /feedback:
     post:
       summary: Submit beta feedback
