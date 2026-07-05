@@ -36,7 +36,25 @@ The database password was exposed in chat. Treat it as compromised.
 4. Save
 5. Test: open https://t1-d.vercel.app/access → **Sign in with Google**
 
-## 3. Optional verify (~5 min)
+## 3. SQL parity + shadow mode (~5 min)
+
+After Neon password is rotated and synced:
+
+```bash
+npm run db:backfill       # one-time KV → SQL sync
+npm run compare:sql       # households/members/users should match
+npm run verify:neon       # full SQL counts
+```
+
+`sync-vercel-env.mjs` sets `T1D_SQL_READ_SHADOW=true` on production. After deploy, watch Vercel logs for `[t1d-api] sql-read shadow mismatch`. When clean for a few days, set in `.env.local`:
+
+```
+T1D_SQL_READ=true
+```
+
+Re-sync and redeploy to switch auth reads to SQL primary (`health` → `"sqlRead":"primary"`).
+
+## 4. Optional smoke (~2 min)
 
 ```bash
 npm run verify:neon          # SQL row counts on Neon

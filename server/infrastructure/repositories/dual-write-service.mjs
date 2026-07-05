@@ -8,6 +8,7 @@ import {
   resolveAlertRow,
   upsertAlertRow,
 } from './alert-repository.mjs';
+import { insertAuditEventRow } from './audit-repository.mjs';
 import { randomBytes } from 'node:crypto';
 import { insertGlucoseReadingWithPool } from './glucose-reading-repository.mjs';
 import { upsertUserRow } from './user-repository.mjs';
@@ -297,6 +298,29 @@ export const dualWriteAlertResponderAction = async ({ household, user, action, a
     return { ok: true, skipped: false };
   } catch (error) {
     return { ok: false, skipped: false, error: error?.message || 'alert_action_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteAuditEvent = async (event) => {
+  if (!event?.id) {
+    return { ok: true, skipped: true, reason: 'missing_event' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    if (event.householdId) {
+      await ensureHouseholdRow(pool, { id: event.householdId, householdName: 'Household', inviteCode: 'UNKNOWN' });
+    }
+    await insertAuditEventRow(pool, event);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'audit_dual_write_failed' };
   } finally {
     await pool.end();
   }

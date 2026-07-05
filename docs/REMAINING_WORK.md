@@ -4,7 +4,13 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
-- **Alert SQL dual-write** — new alerts on Dexcom poll + responder actions (acknowledge/take/resolve) mirrored to `alerts` / `alert_transitions` / `acknowledgements`
+- **Audit SQL dual-write** — safety/nutrition audit events mirrored to `audit_events` table
+- **compare:sql** — reports audit parity as informational note (historical KV events may differ)
+- **JOINT_SESSION.md** — backfill + shadow mode steps after Neon rotation
+
+## Completed without you (prior pass)
+
+- **Alert SQL dual-write** — new alerts on Dexcom poll + responder actions mirrored to relational tables
 - **`persistHouseholdRecord`** — household setup/join/preferences use centralized SQL mirror
 - **`npm run compare:sql`** — KV vs SQL row count parity check for households/members/users
 
