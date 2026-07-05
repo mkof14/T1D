@@ -1,6 +1,7 @@
 import React from 'react';
-import { Download, Heart, Monitor, Smartphone } from 'lucide-react';
+import { Activity, Download, Heart, HeartHandshake, Monitor, Smartphone, Sparkles, Waves } from 'lucide-react';
 import type { DiabetesType, Language } from '../../types';
+import { BRAND_TAGLINE } from '../../content/landing-copy';
 import ThemeToggle from '../ThemeToggle';
 import type { T1DTheme } from '../../lib/t1d-ui';
 import { t1dBtnPrimary, t1dBtnSecondary } from '../../lib/t1d-ui';
@@ -69,6 +70,20 @@ const FOOTER_PWA_COPY: Record<Language, string> = {
   ar: 'بيان PWA',
 };
 
+const PILL_COPY: Record<Language, [string, string, string]> = {
+  en: ['One calm screen', 'Family at the center', 'Gentle, not noisy'],
+  ru: ['Один спокойный экран', 'Семья в центре', 'Мягко, без шума'],
+  uk: ['Один спокійний екран', 'Сімʼя в центрі', 'Мʼяко, без шуму'],
+  es: ['Una pantalla tranquila', 'La familia primero', 'Suave, sin ruido'],
+  fr: ['Un écran apaisant', 'La famille au centre', 'Doux, sans bruit'],
+  de: ['Ein ruhiger Bildschirm', 'Familie im Mittelpunkt', 'Sanft, nicht laut'],
+  zh: ['一个平静画面', '家庭在中心', '温和，不吵闹'],
+  ja: ['落ち着いた一画面', '家族を中心に', 'やさしく、騒がしくない'],
+  pt: ['Uma tela calma', 'Família no centro', 'Suave, sem barulho'],
+  he: ['מסך רגוע אחד', 'המשפחה במרכז', 'עדין, בלי רעש'],
+  ar: ['شاشة هادئة واحدة', 'العائلة في المركز', 'بلطف، بلا ضوضاء'],
+};
+
 export const T1DFooter: React.FC<T1DFooterProps> = ({
   lang,
   theme,
@@ -103,6 +118,7 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
   onSignUp,
   onToggleTheme,
 }) => {
+  const pills = PILL_COPY[lang];
   const footerNavClass = `t1d-footer-link ${isRTL ? 'text-right' : 'text-left'}`;
 
   const handleDownloadClick = (page: FooterLink) => {
@@ -124,7 +140,12 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
       <div className={`t1d-footer-cta ${theme === 'dark' ? 't1d-footer-cta--dark' : ''}`}>
         <div className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between ${isRTL ? 'md:flex-row-reverse' : ''}`}>
           <div className={`space-y-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+            <p className="t1d-footer-kicker">
+              <Sparkles size={14} className="inline-block align-[-2px] mr-1" />
+              {heroEyebrow}
+            </p>
             <p className="t1d-footer-cta-title">{brand}</p>
+            <p className={`text-sm leading-relaxed ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{legalNote}</p>
           </div>
           <div className={`flex flex-wrap gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
             <button type="button" onClick={onSignIn} className={t1dBtnSecondary(theme)}>
@@ -141,14 +162,30 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
       </div>
 
       <div className="t1d-container relative z-10 py-12 md:py-14">
+        <div className={`mb-10 flex flex-wrap gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          {pills.map((pill, index) => {
+            const Icon = index === 0 ? Heart : index === 1 ? HeartHandshake : Activity;
+            return (
+              <span key={pill} className={`t1d-footer-pill ${theme === 'dark' ? 't1d-footer-pill--dark' : ''}`}>
+                <Icon size={14} />
+                {pill}
+              </span>
+            );
+          })}
+        </div>
+
         <div className={`grid grid-cols-1 gap-10 border-b pb-10 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.2fr_0.85fr_0.85fr_0.85fr_0.85fr_0.9fr] ${theme === 'dark' ? 'border-white/10' : 'border-slate-200/80'}`}>
           <div className={`space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
             <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <span className={`t1d-brand-mark ${theme === 'dark' ? 't1d-brand-mark--dark' : ''}`}>
-                <Heart size={18} />
+                <Heart size={20} />
               </span>
-              <p className="text-2xl font-extrabold tracking-tight t1d-display">{brand}</p>
+              <div>
+                <p className="t1d-eyebrow">{BRAND_TAGLINE[lang]}</p>
+                <p className="text-2xl font-extrabold tracking-tight t1d-display">{brand}</p>
+              </div>
             </div>
+            <p className={`text-base font-semibold ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{heroEyebrow}</p>
             <p className={`max-w-md text-sm leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>{disclaimer}</p>
           </div>
 
@@ -245,10 +282,18 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
           </div>
         </div>
 
-        <div className={`mt-8 ${isRTL ? 'text-right' : 'text-left'}`}>
-          <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+        <div className={`mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between ${isRTL ? 'md:flex-row-reverse' : ''}`}>
+          <p className={`text-[12px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>
             {copyright} © 2026 {brand}. {reserved}
           </p>
+          <div className={`flex flex-wrap items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <span className="t1d-footer-live">
+              <Waves size={12} />
+              {activePageLabel}
+            </span>
+            <span className="opacity-30">•</span>
+            <span className={`text-[12px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>{heroEyebrow}</span>
+          </div>
         </div>
       </div>
     </footer>

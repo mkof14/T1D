@@ -47,8 +47,8 @@ interface WorkspaceCopy {
 
 export const WORKSPACE_COPY: Record<Language, WorkspaceCopy> = {
   en: {
-    eyebrow: 'Steady',
-    welcome: 'Hi',
+    eyebrow: 'Daily Safety Space',
+    welcome: 'Welcome',
     signOut: 'Sign Out',
     household: 'Family',
     roleChecklist: 'Your Focus',
@@ -78,8 +78,8 @@ export const WORKSPACE_COPY: Record<Language, WorkspaceCopy> = {
     noHistory: 'Completed daily safety cycles will appear here after recovery finishes.',
     roleFocus: {
       child: { title: 'Child Safe Mode', body: 'This view keeps the child calm, clear, and connected to an adult during overnight risk.', points: ['Stay close to an adult', 'Follow one clear next step', 'Keep treatment nearby'] },
-      parent: { title: 'Parent', body: 'Glucose now, next step, who responds.', points: ['See what is changing', 'Confirm who responds', 'Stay until stable'] },
-      caregiver: { title: 'Backup', body: 'Steps in when family backup is needed.', points: ['See when backup is needed', 'See what happened', 'Take over clearly'] },
+      parent: { title: 'Parent Safety View', body: 'The parent view keeps the current state, next step, and response ownership clear.', points: ['See what is changing now', 'Confirm who is responding', 'Keep recovery covered'] },
+      caregiver: { title: 'Support Adult View', body: 'This view stays simple and becomes active when extra family support is needed.', points: ['See when backup is needed', 'Understand what already happened', 'Take over without confusion'] },
       adult: { title: 'Adult Safety View', body: 'The adult view keeps the current state clear and supports a fast response without overload.', points: ['See the current state fast', 'Respond with one clear action', 'Stay in recovery watch until stable'] },
     },
     stateLabels: { ok: 'Stable', watch: 'Watch', risk: 'Risk', critical: 'Critical', recovery: 'Recovery' },
@@ -108,8 +108,8 @@ export const WORKSPACE_COPY: Record<Language, WorkspaceCopy> = {
     },
   },
   ru: {
-    eyebrow: 'Steady',
-    welcome: 'Привет',
+    eyebrow: 'Пространство Ежедневной Поддержки',
+    welcome: 'Добро пожаловать',
     signOut: 'Выйти',
     household: 'Семья',
     roleChecklist: 'Ваш Фокус',
@@ -139,8 +139,8 @@ export const WORKSPACE_COPY: Record<Language, WorkspaceCopy> = {
     noHistory: 'Завершённые циклы поддержки появятся здесь после окончания восстановления.',
     roleFocus: {
       child: { title: 'Детский Спокойный Режим', body: 'Этот экран удерживает ребёнка в спокойном и понятном состоянии рядом со взрослым во время риска.', points: ['Оставаться рядом со взрослым', 'Видеть только следующий шаг', 'Держать лечение под рукой'] },
-      parent: { title: 'Родитель', body: 'Сахар сейчас, следующий шаг, кто отвечает.', points: ['Что меняется', 'Кто отвечает', 'До стабилизации'] },
-      caregiver: { title: 'Резерв', body: 'Когда нужна подстраховка семьи.', points: ['Когда нужен резерв', 'Что уже было', 'Взять без путаницы'] },
+      parent: { title: 'Экран Родителя', body: 'Экран родителя помогает быстро понять текущее состояние, следующее действие и кто уже отвечает.', points: ['Понимать, что меняется сейчас', 'Видеть, кто уже отвечает', 'Довести цикл до стабильного восстановления'] },
+      caregiver: { title: 'Экран Поддержки', body: 'Экран помогающего взрослого остаётся простым и включается, когда действительно нужна подстраховка.', points: ['Понять, когда нужна подстраховка', 'Увидеть, что уже произошло', 'Принять ситуацию без путаницы'] },
       adult: { title: 'Экран Взрослого С T1D', body: 'Этот экран помогает быстро увидеть состояние и отреагировать без перегруза.', points: ['Сразу видеть текущее состояние', 'Отвечать одним понятным действием', 'Оставаться под наблюдением до стабилизации'] },
     },
     stateLabels: { ok: 'Стабильно', watch: 'Наблюдение', risk: 'Риск', critical: 'Критично', recovery: 'Восстановление' },

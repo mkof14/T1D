@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import type { Language } from '../../types';
 import { WORKSPACE_BETA_COPY } from '../../content/workspace-beta-copy';
 import type { T1DTheme } from '../../lib/t1d-ui';
@@ -31,11 +31,16 @@ export const WorkspaceBetaBanner: React.FC<WorkspaceBetaBannerProps> = ({ lang, 
       role="status"
     >
       <div className={`flex items-start gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <p className="min-w-0 flex-1 text-sm leading-relaxed">
-          <span className="font-semibold">{copy.title}</span>
-          {' '}
-          {copy.body}
-        </p>
+        <AlertTriangle className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className={`flex flex-wrap items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
+              {copy.badge}
+            </span>
+            <p className="text-sm font-semibold">{copy.title}</p>
+          </div>
+          <p className={`text-sm ${theme === 'dark' ? 'text-amber-100/85' : 'text-amber-900/85'}`}>{copy.body}</p>
+        </div>
         <button
           type="button"
           className="shrink-0 rounded-full p-1 opacity-80 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
@@ -45,7 +50,7 @@ export const WorkspaceBetaBanner: React.FC<WorkspaceBetaBannerProps> = ({ lang, 
             setDismissed(true);
           }}
         >
-          <X size={14} />
+          <X size={16} />
         </button>
       </div>
     </div>

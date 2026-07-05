@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Minus } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Minus, Moon, Sun } from 'lucide-react';
 import type { Language, DiabetesType } from '../../types';
 import type { T1DTheme } from '../../lib/t1d-ui';
 import { t1dSoftLabel } from '../../lib/t1d-ui';
@@ -91,12 +91,13 @@ export const GlucoseNowDashboard: React.FC<GlucoseNowDashboardProps> = ({
 }) => {
   const copy = GLUCOSE_DISPLAY_COPY[lang];
   const visualCopy = WORKSPACE_VISUAL_COPY[lang];
-  const fieldLabelClass = t1dSoftLabel(theme);
+  const softLabelClass = t1dSoftLabel(theme);
   const glucoseMgDl = currentState.glucose ?? dexcom?.latestGlucose ?? null;
   const trend = currentState.trend || dexcom?.latestTrend || 'unknown';
   const TrendIcon = trendIcon(trend);
   const displayValue = formatGlucoseValue(glucoseMgDl, glucoseUnit);
   const statusCopy = zoneStatusCopy(lang, currentState.level, glucoseMgDl, diabetesType);
+  const targetCopy = diabetesType === 'type2' ? copy.type2Target : copy.type1Target;
   const readings = resolveChartReadings(dexcom?.readings, glucoseMgDl, trend);
   const chart = buildGlucoseChartLayout(readings, glucoseUnit, diabetesType);
   const mealMarkers = mealMarkersForReadings(recentMeals, readings, glucoseUnit, chart);
@@ -108,34 +109,44 @@ export const GlucoseNowDashboard: React.FC<GlucoseNowDashboardProps> = ({
   const target = glucoseTargetRange(diabetesType);
   const targetStartPct = ((glucoseDisplayNumber(target.low, glucoseUnit) ?? target.low) - gaugeMin) / (gaugeMax - gaugeMin) * 100;
   const targetEndPct = ((glucoseDisplayNumber(target.high, glucoseUnit) ?? target.high) - gaugeMin) / (gaugeMax - gaugeMin) * 100;
-  const modeLabel = currentState.mode === 'night' ? modeLabels.night : modeLabels.day;
 
   return (
     <div className={`t1d-glucose-dashboard ${glucoseDashboardTypeClass(diabetesType)} ${theme === 'dark' ? 't1d-glucose-dashboard--dark' : 't1d-glucose-dashboard--light'} ${isRTL ? 'text-right' : 'text-left'}`}>
       <div className={`t1d-glucose-hero ${zoneTone(currentState.level)}`}>
         <div className={`flex flex-wrap items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
           <div>
-            <div className={`flex items-end gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <p className={softLabelClass}>{copy.currentReading}</p>
+            <div className={`mt-2 flex items-end gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <p className="t1d-glucose-hero__value">{displayValue}</p>
               <p className="t1d-glucose-hero__unit">{glucoseUnit}</p>
             </div>
-            <p className="mt-2 text-base font-semibold">{statusCopy}</p>
+            <p className="mt-3 text-sm font-semibold opacity-90">{statusCopy}</p>
           </div>
-          <div className={`${isRTL ? 'text-right' : 'text-left'}`}>
-            <p className="text-base font-semibold">{stateLabel} · {modeLabel}</p>
-            <div className={`mt-2 flex items-center gap-2 text-base font-semibold ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <TrendIcon size={16} aria-hidden="true" />
+          <div className={`t1d-glucose-hero__badge ${isRTL ? 'text-right' : 'text-left'}`}>
+            <div className={`flex flex-wrap gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <span className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide">{stateLabel}</span>
+              <span className={`t1d-mode-chip ${currentState.mode === 'night' ? 't1d-mode-chip--night' : 't1d-mode-chip--day'}`}>
+                {currentState.mode === 'night' ? <Moon size={12} /> : <Sun size={12} />}
+                {currentState.mode === 'night' ? modeLabels.night : modeLabels.day}
+              </span>
+            </div>
+            <div className={`mt-3 flex items-center gap-2 text-base font-bold ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <TrendIcon size={22} aria-hidden="true" />
               <span>{trendLabel}</span>
             </div>
           </div>
         </div>
-        <p className="mt-5 text-xl font-black tracking-tight">{headline}</p>
-        <p className="mt-3 text-base leading-relaxed">{recommendation}</p>
+        <p className="mt-5 text-lg font-black tracking-tight">{headline}</p>
+        <p className="mt-2 text-sm leading-relaxed opacity-85">{recommendation}</p>
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
         <div className={`t1d-glucose-panel ${theme === 'dark' ? 't1d-glucose-panel--dark' : 't1d-glucose-panel--light'}`}>
-          <div className="mt-1 overflow-x-auto">
+          <div className={`flex flex-wrap items-center justify-between gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <p className={softLabelClass}>{copy.trendChart}</p>
+            <p className="text-sm font-semibold opacity-80">{copy.lastReadings}</p>
+          </div>
+          <div className="mt-4 overflow-x-auto">
             <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="t1d-glucose-chart" role="img" aria-label={copy.trendChart}>
               <rect
                 x={CHART_PAD.left}
@@ -193,11 +204,13 @@ export const GlucoseNowDashboard: React.FC<GlucoseNowDashboardProps> = ({
               ))}
             </div>
           ) : null}
+          <p className="mt-3 text-sm font-semibold opacity-85">{targetCopy}</p>
         </div>
 
         <div className="grid gap-4">
           <div className={`t1d-glucose-panel ${theme === 'dark' ? 't1d-glucose-panel--dark' : 't1d-glucose-panel--light'}`}>
-            <div className="t1d-glucose-gauge mt-2">
+            <p className={softLabelClass}>{copy.rangeGauge}</p>
+            <div className="t1d-glucose-gauge mt-4">
               <div className="t1d-glucose-gauge__track">
                 <div
                   className="t1d-glucose-gauge__target"
@@ -205,7 +218,7 @@ export const GlucoseNowDashboard: React.FC<GlucoseNowDashboardProps> = ({
                 />
                 <div className="t1d-glucose-gauge__marker" style={{ left: `${gaugePct}%` }} />
               </div>
-              <div className={`mt-3 flex justify-between text-sm font-semibold ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className={`mt-3 flex justify-between text-xs font-bold opacity-75 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <span>{copy.lowZone}</span>
                 <span>{copy.targetBand}</span>
                 <span>{copy.highZone}</span>
@@ -213,17 +226,20 @@ export const GlucoseNowDashboard: React.FC<GlucoseNowDashboardProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              { label: copy.timeInRange, value: `${chart.timeInRangePct}%` },
-              { label: dataFieldLabel, value: dataStatusLabel },
-              { label: responderLabel, value: currentState.responder },
-            ].map((stat) => (
-              <div key={stat.label} className={`t1d-glucose-stat ${theme === 'dark' ? 't1d-glucose-stat--dark' : ''}`}>
-                <p className={fieldLabelClass}>{stat.label}</p>
-                <p className="t1d-glucose-stat__value t1d-glucose-stat__value--sm">{stat.value}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`t1d-glucose-stat ${theme === 'dark' ? 't1d-glucose-stat--dark' : 't1d-glucose-stat--light'}`}>
+              <p className={softLabelClass}>{copy.timeInRange}</p>
+              <p className="t1d-glucose-stat__value">{chart.timeInRangePct}%</p>
+            </div>
+            <div className={`t1d-glucose-stat ${theme === 'dark' ? 't1d-glucose-stat--dark' : 't1d-glucose-stat--light'}`}>
+              <p className={softLabelClass}>{dataFieldLabel}</p>
+              <p className="t1d-glucose-stat__value t1d-glucose-stat__value--sm">{dataStatusLabel}</p>
+            </div>
+            <div className={`t1d-glucose-stat col-span-2 ${theme === 'dark' ? 't1d-glucose-stat--dark' : 't1d-glucose-stat--light'}`}>
+              <p className={softLabelClass}>{responderLabel}</p>
+              <p className="t1d-glucose-stat__value t1d-glucose-stat__value--sm">{currentState.responder}</p>
+              <p className="mt-1 text-xs opacity-70">{currentState.acknowledgedAt}</p>
+            </div>
           </div>
         </div>
       </div>
