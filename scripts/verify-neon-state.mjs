@@ -3,7 +3,9 @@ import { getPool } from '../server/infrastructure/db.mjs';
 
 const queries = {
   households: 'SELECT COUNT(*)::int AS count FROM households',
+  household_members: 'SELECT COUNT(*)::int AS count FROM household_members',
   users: 'SELECT COUNT(*)::int AS count FROM users',
+  sessions: 'SELECT COUNT(*)::int AS count FROM sessions WHERE revoked_at IS NULL',
   glucose_readings: 'SELECT COUNT(*)::int AS count FROM glucose_readings',
   kv_namespaces: 'SELECT COUNT(DISTINCT namespace)::int AS count FROM t1d_kv',
 };

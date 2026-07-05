@@ -35,6 +35,10 @@ const main = async () => {
   let usersUpserted = 0;
   let failures = 0;
 
+  const userResults = await dualWriteUsers(users);
+  usersUpserted = userResults.filter((entry) => entry.ok && !entry.skipped).length;
+  failures += userResults.filter((entry) => !entry.ok && !entry.skipped).length;
+
   for (const household of households) {
     if (!household?.id) continue;
 
@@ -59,10 +63,6 @@ const main = async () => {
       console.warn(`[backfill] readings ${household.id}:`, writeResult.error || 'failed');
     }
   }
-
-  const userResults = await dualWriteUsers(users);
-  usersUpserted = userResults.filter((entry) => entry.ok && !entry.skipped).length;
-  failures += userResults.filter((entry) => !entry.ok && !entry.skipped).length;
 
   console.log(JSON.stringify({
     ok: failures === 0,

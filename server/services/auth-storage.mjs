@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { applySecurityHeaders } from '../security-headers.mjs';
-import { dualWriteUser } from '../infrastructure/repositories/dual-write-service.mjs';
+import { dualWriteUser, dualWriteSession, dualWriteRevokeSession, dualWriteRevokeSessionsForUser } from '../infrastructure/repositories/dual-write-service.mjs';
 
 export const createAuthStorage = ({
   readJson,
@@ -36,6 +36,30 @@ export const createAuthStorage = ({
     }
   };
 
+  const mirrorSessionToSql = (session) => {
+    void dualWriteSession(session).then((result) => {
+      if (!result.ok && !result.skipped) {
+        console.warn('[t1d-api] session dual-write failed', result.error);
+      }
+    });
+  };
+
+  const mirrorRevokeSessionToSql = (sessionId) => {
+    void dualWriteRevokeSession(sessionId).then((result) => {
+      if (!result.ok && !result.skipped) {
+        console.warn('[t1d-api] session revoke failed', result.error);
+      }
+    });
+  };
+
+  const mirrorRevokeSessionsForUserToSql = (userId) => {
+    void dualWriteRevokeSessionsForUser(userId).then((result) => {
+      if (!result.ok && !result.skipped) {
+        console.warn('[t1d-api] session revoke failed', result.error);
+      }
+    });
+  };
+
   const updateUser = async (userId, patch) => {
     const users = await readUsers();
     const nextUsers = users.map((entry) => (entry.id === userId ? { ...entry, ...patch } : entry));
@@ -61,6 +85,13 @@ export const createAuthStorage = ({
   const invalidateSessionsForUser = async (userId) => {
     const sessions = await readSessions();
     await writeSessions(sessions.filter((session) => session.userId !== userId));
+    mirrorRevokeSessionsForUserToSql(userId);
+  };
+
+  const removeSession = async (sessionId) => {
+    const sessions = await readSessions();
+    await writeSessions(sessions.filter((session) => session.id !== sessionId));
+    mirrorRevokeSessionToSql(sessionId);
   };
 
   const readOAuthStates = async () => {
@@ -120,6 +151,7 @@ export const createAuthStorage = ({
     };
     sessions.push(nextSession);
     await writeSessions(sessions);
+    mirrorSessionToSql(nextSession);
     return nextSession;
   };
 
@@ -210,6 +242,7 @@ export const createAuthStorage = ({
     readSessions,
     writeSessions,
     invalidateSessionsForUser,
+    removeSession,
     readOAuthStates,
     writeOAuthStates,
     createOAuthState,

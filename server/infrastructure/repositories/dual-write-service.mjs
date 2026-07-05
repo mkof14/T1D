@@ -3,6 +3,11 @@ import { normalizeReading } from '../../domain/glucose/glucose-normalizer.mjs';
 import { ensureHouseholdRow } from './household-repository.mjs';
 import { insertGlucoseReadingWithPool } from './glucose-reading-repository.mjs';
 import { upsertUserRow } from './user-repository.mjs';
+import {
+  revokeSessionRow,
+  revokeSessionsForUserRows,
+  upsertSessionRow,
+} from './session-repository.mjs';
 
 const newReadingsSince = (previousReadings = [], nextReadings = []) => {
   const previousIds = new Set(
@@ -112,4 +117,64 @@ export const dualWriteUsers = async (users = []) => {
     results.push(await dualWriteUser(user));
   }
   return results;
+};
+
+export const dualWriteSession = async (session) => {
+  if (!session?.id || !session?.userId) {
+    return { ok: true, skipped: true, reason: 'missing_session' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await upsertSessionRow(pool, session);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'session_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteRevokeSession = async (sessionId) => {
+  if (!sessionId) {
+    return { ok: true, skipped: true, reason: 'missing_session' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await revokeSessionRow(pool, sessionId);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'session_revoke_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteRevokeSessionsForUser = async (userId) => {
+  if (!userId) {
+    return { ok: true, skipped: true, reason: 'missing_user' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await revokeSessionsForUserRows(pool, userId);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'session_revoke_failed' };
+  } finally {
+    await pool.end();
+  }
 };

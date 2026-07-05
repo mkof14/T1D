@@ -4,7 +4,14 @@ Updated: 2026-07-05
 
 ## Completed without you (this pass)
 
-- **Migration 001** applied locally to Neon (`npm run db:migrate`)
+- **Household members SQL sync** — `syncHouseholdMembers` on every `ensureHouseholdRow` (setup/join, backfill, Dexcom poll)
+- **Session SQL dual-write** — create/revoke sessions mirrored to `sessions` table
+- **Verify script** — `npm run verify:neon` now includes `household_members` + active `sessions` counts
+
+## Completed without you (prior pass)
+
+- **Household SQL dual-write** on setup/join (`dualWriteHouseholdSnapshot`)
+- **`npm run verify:neon`** + `docs/JOINT_SESSION.md`
 - **Frontend timeline** wired to `GET /api/timeline/me` via `EventTimeline.tsx`
 - **Alert actions** in timeline UI: acknowledge, take ownership, resolve
 - **Dual-write skeleton** for `glucose_readings` in `server/infrastructure/repositories/glucose-reading-repository.mjs`
@@ -49,8 +56,8 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 | Phase | Task |
 |-------|------|
-| **C** | Verify `users` + `glucose_readings` rows on Neon after live traffic |
-| **4 done** | Auth storage module + user dual-write on signup/update |
+| **C** | Verify SQL row counts on Neon after live traffic (`npm run verify:neon`) |
+| **D** | Read path from SQL for users/households (KV fallback) |
 
 ---
 

@@ -37,6 +37,7 @@ export const handleAuthRoutes = async (ctx) => {
     hashPassword,
     verifyPassword,
     invalidateSessionsForUser,
+    removeSession,
     parseCookies,
     SESSION_COOKIE,
     clearSessionCookie,
@@ -145,8 +146,7 @@ export const handleAuthRoutes = async (ctx) => {
     const cookies = parseCookies(req.headers.cookie);
     const sid = cookies[SESSION_COOKIE];
     if (sid) {
-      const sessions = await readSessions();
-      await writeSessions(sessions.filter((entry) => entry.id !== sid));
+      await removeSession(sid);
     }
     sendJson(res, 200, { ok: true }, { 'Set-Cookie': clearSessionCookie() });
     return true;
