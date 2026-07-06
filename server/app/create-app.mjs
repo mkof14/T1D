@@ -110,7 +110,10 @@ export const createApp = ({ serverDir }) => {
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS]);
+  const SITE_ORIGINS = [SITE_URL, process.env.VITE_SITE_URL]
+    .map((value) => String(value || '').trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS, ...SITE_ORIGINS]);
 
   const generateInviteCode = () => randomBytes(16).toString('hex').toUpperCase();
 

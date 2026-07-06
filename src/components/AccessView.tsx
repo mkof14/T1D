@@ -26,7 +26,7 @@ interface AccessViewProps {
   setTheme: (theme: 'light' | 'dark') => void;
   diabetesType?: DiabetesType | null;
   onBack: () => void;
-  onSuccess: (user: AccessUser) => void;
+  onSuccess: (user: AccessUser) => void | Promise<void>;
   onModeChange: (mode: Mode) => void;
 }
 
@@ -38,6 +38,7 @@ const normalizeError = (message: string, copy: AccessCopy) => {
   ) return copy.errors.duplicateEmail;
   if (message === 'Email and password are required') return copy.errors.missingCredentials;
   if (message === 'Request failed') return copy.errors.requestFailed;
+  if (message === 'Origin not allowed') return copy.errors.requestFailed;
   return message || copy.errors.requestFailed;
 };
 
@@ -91,8 +92,8 @@ export const AccessView: React.FC<AccessViewProps> = ({
     }
   }, [socialCopy.googleFailed, socialCopy.googleNoAccount]);
 
-  const completeAuth = (user: AccessUser) => {
-    onSuccess(user);
+  const completeAuth = async (user: AccessUser) => {
+    await onSuccess(user);
   };
 
   const handleGoogleCredential = async (credential: string) => {
@@ -110,7 +111,7 @@ export const AccessView: React.FC<AccessViewProps> = ({
         role: mode === 'signup' ? defaultSignupRole(presetType) : undefined,
         diabetesType: diabetesTypeForApi,
       });
-      completeAuth({ ...response.user, password: '' });
+      await completeAuth({ ...response.user, password: '' });
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : '';
       setError(message === 'no_account' ? socialCopy.googleNoAccount : socialCopy.googleFailed);
@@ -127,7 +128,7 @@ export const AccessView: React.FC<AccessViewProps> = ({
     try {
       if (mode === 'signin') {
         const response = await signIn({ email, password, diabetesType: diabetesTypeForApi });
-        completeAuth({ ...response.user, password });
+        await completeAuth({ ...response.user, password });
         return;
       }
 
@@ -141,7 +142,7 @@ export const AccessView: React.FC<AccessViewProps> = ({
         organization: '',
         diabetesType: diabetesTypeForApi,
       });
-      completeAuth({ ...response.user, password });
+      await completeAuth({ ...response.user, password });
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : '';
       setError(normalizeError(message, copy));

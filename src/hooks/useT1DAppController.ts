@@ -253,12 +253,16 @@ export const useT1DAppController = () => {
 
   const handleAuthSuccess = async (user: AccessUser) => {
     setSession(user);
-    const nextWorkspace = await getWorkspace();
-    if (nextWorkspace.household?.diabetesType) {
-      setSignupDiabetesType(nextWorkspace.household.diabetesType);
-    }
-    setWorkspace(nextWorkspace);
     setRoute('workspace');
+    try {
+      const nextWorkspace = await getWorkspace();
+      if (nextWorkspace.household?.diabetesType) {
+        setSignupDiabetesType(nextWorkspace.household.diabetesType);
+      }
+      setWorkspace(nextWorkspace);
+    } catch {
+      setWorkspace(null);
+    }
   };
 
   const handleSetupComplete = async (household: HouseholdProfile) => {

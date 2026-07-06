@@ -184,10 +184,6 @@ export const createAuthStorage = ({
     const users = await readUsers();
     let user = users.find((entry) => entry.googleId === googleId) || users.find((entry) => entry.email === email);
 
-    if (!user && mode === 'signin') {
-      return { error: 'no_account' };
-    }
-
     if (!user) {
       user = {
         id: randomBytes(12).toString('hex'),

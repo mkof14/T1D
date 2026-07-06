@@ -423,7 +423,7 @@ export async function signInWithGoogle(body: {
 export async function signIn(body: { email: string; password: string; diabetesType?: DiabetesType }) {
   const res = await fetch('/api/access/signin', {
     method: 'POST',
-    headers: jsonHeaders,
+    headers: requestHeaders(),
     credentials: 'include',
     body: JSON.stringify(body),
   });
@@ -440,7 +440,7 @@ export async function signUp(body: {
 }) {
   const res = await fetch('/api/access/signup', {
     method: 'POST',
-    headers: jsonHeaders,
+    headers: requestHeaders(),
     credentials: 'include',
     body: JSON.stringify(body),
   });

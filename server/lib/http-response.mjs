@@ -66,6 +66,12 @@ export const createHttpResponse = ({
         // ignore malformed referer
       }
     }
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    if (host) {
+      const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim() || 'https';
+      const hostOrigin = `${proto}://${host}`;
+      if (allowedOrigins.has(hostOrigin)) return true;
+    }
     sendJson(res, 403, { error: 'Origin not allowed' });
     return false;
   };
