@@ -1,8 +1,14 @@
 import { randomBytes } from 'node:crypto';
+import { applySecurityHeaders } from '../../security-headers.mjs';
 import {
+  buildGoogleAuthUrl,
+  exchangeGoogleCode,
+  fetchGoogleProfile,
   googleAuthConfig,
   googleJavascriptOrigins,
   isGoogleAuthEnabled,
+  isGoogleRedirectFlowEnabled,
+  resolveGoogleRedirectUri,
   verifyGoogleIdToken,
 } from '../../google-auth.mjs';
 import { findUserByEmailFromSql, isSqlReadEnabled } from '../../infrastructure/repositories/sql-read-service.mjs';
@@ -43,7 +49,11 @@ export const handleAuthRoutes = async (ctx) => {
     SESSION_COOKIE,
     clearSessionCookie,
     createSessionCookie,
+    SITE_URL,
+    createGoogleOAuthState,
+    consumeOAuthState,
     resolveGoogleUser,
+    redirectWithSession,
     readHouseholds,
     writeHouseholds,
   } = ctx;
@@ -66,6 +76,32 @@ export const handleAuthRoutes = async (ctx) => {
     return true;
   }
 
+  const completeGoogleSignIn = async (req, res, resolved, siteBase = SITE_URL.replace(/\/$/, '')) => {
+    if (resolved.error === 'no_account') {
+      sendJson(res, 409, { error: 'no_account' });
+      return true;
+    }
+
+    if (resolved.error || !resolved.user) {
+      sendJson(res, 401, { error: 'Google sign-in failed' });
+      return true;
+    }
+
+    const nextSession = await createSessionForUser(resolved.user.id);
+    sendJson(res, 200, {
+      user: {
+        email: resolved.user.email,
+        fullName: resolved.user.fullName,
+        role: resolved.user.role,
+        organization: resolved.user.organization || '',
+      },
+      householdReady: Boolean(resolved.user.householdId),
+    }, {
+      'Set-Cookie': createSessionCookie(nextSession.id, req),
+    });
+    return true;
+  };
+
   if (req.method === 'GET' && url.pathname === '/api/access/google/status') {
     const { clientId } = googleAuthConfig();
     sendJson(res, 200, {
@@ -78,7 +114,26 @@ export const handleAuthRoutes = async (ctx) => {
     return true;
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/access/google/signin') {
+  const handleGoogleCredentialSignIn = async (body) => {
+    const credential = safeText(body?.credential, 8192);
+    const mode = body?.mode === 'signup' ? 'signup' : 'signin';
+    const role = safeRole(body?.role);
+    if (!credential) {
+      sendJson(res, 400, { error: 'Missing Google credential' });
+      return true;
+    }
+
+    try {
+      const profile = await verifyGoogleIdToken(credential);
+      const resolved = await resolveGoogleUser({ profile, mode, role });
+      return completeGoogleSignIn(req, res, resolved);
+    } catch {
+      sendJson(res, 401, { error: 'Invalid Google credential' });
+      return true;
+    }
+  };
+
+  if (req.method === 'POST' && (url.pathname === '/api/access/google/signin' || url.pathname === '/api/access/google/credential')) {
     if (!isGoogleAuthEnabled()) {
       sendJson(res, 503, { error: 'Google sign-in is not configured' });
       return true;
@@ -91,43 +146,81 @@ export const handleAuthRoutes = async (ctx) => {
     }
 
     const body = await readBody(req);
-    const credential = safeText(body?.credential, 8192);
-    const mode = body?.mode === 'signup' ? 'signup' : 'signin';
-    const role = safeRole(body?.role);
+    return handleGoogleCredentialSignIn(body);
+  }
 
-    if (!credential) {
-      sendJson(res, 400, { error: 'Missing Google credential' });
+  if (req.method === 'GET' && url.pathname === '/api/access/google/start') {
+    if (!isGoogleRedirectFlowEnabled()) {
+      sendJson(res, 503, { error: 'Google redirect sign-in is not configured' });
+      return true;
+    }
+
+    const limit = await authRateLimit(clientIp(req));
+    if (!limit.allowed) {
+      sendJson(res, 429, { error: t(lang, 'rateLimited') });
+      return true;
+    }
+
+    const mode = url.searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
+    const role = safeRole(url.searchParams.get('role'));
+    const redirectUri = resolveGoogleRedirectUri(req, url.searchParams.get('origin') || '');
+    const state = await createGoogleOAuthState({ mode, role, redirectUri });
+    applySecurityHeaders(res);
+    res.writeHead(302, { Location: buildGoogleAuthUrl(state, redirectUri) });
+    res.end();
+    return true;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/access/google/callback') {
+    const code = safeText(url.searchParams.get('code'), 240);
+    const stateToken = safeText(url.searchParams.get('state'), 120);
+    const oauthState = stateToken ? await consumeOAuthState(stateToken) : null;
+    const redirectUri = oauthState?.redirectUri || resolveGoogleRedirectUri(req);
+    const siteBase = (() => {
+      try {
+        return new URL(redirectUri).origin;
+      } catch {
+        return SITE_URL.replace(/\/$/, '');
+      }
+    })();
+    const errorRedirect = `${siteBase}/access?google_auth=error`;
+
+    if (!code || !oauthState || oauthState.kind !== 'google') {
+      applySecurityHeaders(res);
+      res.writeHead(302, { Location: errorRedirect });
+      res.end();
       return true;
     }
 
     try {
-      const profile = await verifyGoogleIdToken(credential);
-      const resolved = await resolveGoogleUser({ profile, mode, role });
+      const tokenPayload = await exchangeGoogleCode(code, redirectUri);
+      const profile = await fetchGoogleProfile(tokenPayload.access_token);
+      const resolved = await resolveGoogleUser({
+        profile,
+        mode: oauthState.mode,
+        role: oauthState.role,
+      });
 
       if (resolved.error === 'no_account') {
-        sendJson(res, 404, { error: 'no_account' });
+        applySecurityHeaders(res);
+        res.writeHead(302, { Location: `${siteBase}/create-account?google_auth=no_account` });
+        res.end();
         return true;
       }
 
       if (resolved.error || !resolved.user) {
-        sendJson(res, 401, { error: 'Google sign-in failed' });
+        applySecurityHeaders(res);
+        res.writeHead(302, { Location: errorRedirect });
+        res.end();
         return true;
       }
 
-      const nextSession = await createSessionForUser(resolved.user.id);
-      sendJson(res, 200, {
-        user: {
-          email: resolved.user.email,
-          fullName: resolved.user.fullName,
-          role: resolved.user.role,
-          organization: resolved.user.organization || '',
-        },
-        householdReady: Boolean(resolved.user.householdId),
-      }, {
-        'Set-Cookie': createSessionCookie(nextSession.id, req),
-      });
+      const targetPath = resolved.user.householdId ? '/workspace' : '/household-setup';
+      await redirectWithSession(res, req, resolved.user, targetPath, siteBase);
     } catch {
-      sendJson(res, 401, { error: 'Invalid Google credential' });
+      applySecurityHeaders(res);
+      res.writeHead(302, { Location: errorRedirect });
+      res.end();
     }
     return true;
   }

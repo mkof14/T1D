@@ -46,6 +46,7 @@ export const GoogleSignInPanel: React.FC<GoogleSignInPanelProps> = ({
           }}
           onError={onError}
           useOneTap={false}
+          ux_mode="popup"
           theme="outline"
           size="large"
           text="continue_with"

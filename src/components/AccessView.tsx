@@ -119,6 +119,23 @@ export const AccessView: React.FC<AccessViewProps> = ({
       .catch(() => setGoogleEnabled(false));
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const googleAuth = params.get('google_auth');
+    if (googleAuth === 'error') {
+      setError(socialCopy.googleFailed);
+    }
+    if (googleAuth === 'no_account') {
+      setError(socialCopy.googleNoAccount);
+    }
+    if (googleAuth) {
+      params.delete('google_auth');
+      const nextSearch = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
+    }
+  }, [socialCopy.googleFailed, socialCopy.googleNoAccount]);
+
   const handleGoogleCredential = async (credential: string) => {
     if (!googleEnabled) {
       setError(socialCopy.googleUnavailable);

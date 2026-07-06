@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { googleAuthConfig, googleJavascriptOrigins, isGoogleAuthEnabled } from '../../server/google-auth.mjs';
+import {
+  googleAuthConfig,
+  googleJavascriptOrigins,
+  isGoogleAuthEnabled,
+  resolveGoogleRedirectUri,
+} from '../../server/google-auth.mjs';
 
 describe('google identity services auth', () => {
   it('lists javascript origins for Google Console', () => {
@@ -16,5 +21,10 @@ describe('google identity services auth', () => {
 
   it('reads client id from env', () => {
     expect(googleAuthConfig().clientId.length).toBeGreaterThan(0);
+  });
+
+  it('resolves redirect callback for local and prod origins', () => {
+    expect(resolveGoogleRedirectUri({}, 'http://localhost:3002')).toBe('http://localhost:3002/api/access/google/callback');
+    expect(resolveGoogleRedirectUri({}, 'https://t1-d.vercel.app')).toBe('https://t1-d.vercel.app/api/access/google/callback');
   });
 });
