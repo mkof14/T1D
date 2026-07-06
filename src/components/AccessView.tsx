@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { confirmPasswordReset, getGoogleAuthStatus, joinHousehold, requestPasswordReset, saveHousehold, signIn, signInWithGoogle, signUp } from '../lib/api';
+import { confirmPasswordReset, getGoogleAuthStatus, joinHousehold, requestPasswordReset, saveHousehold, signIn, signInWithGoogle, signUp, type GoogleAuthStatus } from '../lib/api';
 import { AUTH_SOCIAL_COPY, COPY, RESET_COPY, type AccessCopy } from '../content/access-copy';
 import { MEMBER_PATH_COPY, TYPE2_ACCESS_LABELS } from '../content/member-path-copy';
 import { BRAND_TAGLINE } from '../content/landing-copy';
@@ -10,6 +10,7 @@ import { buildPublicSiteChrome } from '../lib/public-site-chrome';
 import { Language, ROLE_LABELS, RTL_LANGUAGES, type DiabetesType, type UserRole } from '../types';
 import { MemberZoneShell } from './layout/MemberZoneShell';
 import { GoogleSignInPanel } from './auth/GoogleSignInPanel';
+import { GoogleOriginSetupCallout } from './auth/GoogleOriginSetupCallout';
 import { PasswordField } from './auth/PasswordField';
 import { getRoleLabels } from '../lib/role-labels';
 import { createInitialHouseholdForm, getHouseholdSetupSectionCopy, HouseholdSetupFields, type HouseholdFormState } from './HouseholdSetupFields';
@@ -89,6 +90,7 @@ export const AccessView: React.FC<AccessViewProps> = ({
   const [busy, setBusy] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
+  const [googleStatus, setGoogleStatus] = useState<GoogleAuthStatus | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetToken, setResetToken] = useState('');
   const [resetNotice, setResetNotice] = useState('');
@@ -110,6 +112,7 @@ export const AccessView: React.FC<AccessViewProps> = ({
   useEffect(() => {
     getGoogleAuthStatus()
       .then((response) => {
+        setGoogleStatus(response);
         setGoogleEnabled(response.enabled);
         setGoogleClientId(response.clientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '');
       })
@@ -221,6 +224,13 @@ export const AccessView: React.FC<AccessViewProps> = ({
             <h1 className="sr-only">{copy.title}</h1>
 
             <div className="space-y-5">
+              {googleEnabled ? (
+                <GoogleOriginSetupCallout
+                  lang={lang === 'ru' || lang === 'uk' ? 'ru' : 'en'}
+                  theme={theme}
+                  info={googleStatus}
+                />
+              ) : null}
               {googleEnabled && googleClientId ? (
                 <GoogleSignInPanel
                   clientId={googleClientId}
