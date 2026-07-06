@@ -62,7 +62,6 @@ export const T1DAppRouter: React.FC<{ controller: AppController }> = ({ controll
             setTheme={setTheme}
             diabetesType={readSignupDiabetesType()}
             onBack={() => setRoute('public')}
-            onSignUp={beginSignup}
             onSuccess={handleAuthSuccess}
             onModeChange={(nextMode: RouteMode) => setRoute(nextMode)}
           />

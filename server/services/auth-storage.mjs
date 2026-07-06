@@ -133,7 +133,7 @@ export const createAuthStorage = ({
     return match;
   };
 
-  const createGoogleOAuthState = async ({ mode, role, redirectUri }) => {
+  const createGoogleOAuthState = async ({ mode, role, redirectUri, diabetesType }) => {
     const token = randomBytes(12).toString('hex');
     const states = await readOAuthStates();
     states.push({
@@ -142,6 +142,7 @@ export const createAuthStorage = ({
       mode: mode === 'signup' ? 'signup' : 'signin',
       role: safeRole(role),
       redirectUri: String(redirectUri || '').trim(),
+      diabetesType: diabetesType === 'type2' ? 'type2' : 'type1',
       expiresAt: Date.now() + 1000 * 60 * 15,
     });
     await writeOAuthStates(states.slice(-100));

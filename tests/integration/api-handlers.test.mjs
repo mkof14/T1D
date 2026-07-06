@@ -76,16 +76,18 @@ describe('api handlers', () => {
     });
 
     expect(signup.status).toBe(201);
+    expect(signup.json().householdReady).toBe(true);
     const sessionCookie = cookieFromResponse(signup, 't1d_sid');
     expect(sessionCookie).toBeTruthy();
 
-    const workspaceBeforeSetup = await invoke(handleRequest, {
+    const workspaceAfterSignup = await invoke(handleRequest, {
       method: 'GET',
       url: '/api/workspace',
       headers: { cookie: `t1d_sid=${sessionCookie}`, 'x-t1d-lang': 'ru' },
     });
-    expect(workspaceBeforeSetup.status).toBe(200);
-    expect(workspaceBeforeSetup.json().needsSetup).toBe(true);
+    expect(workspaceAfterSignup.status).toBe(200);
+    expect(workspaceAfterSignup.json().needsSetup).toBe(false);
+    expect(workspaceAfterSignup.json().household.diabetesType).toBe('type1');
 
     const setup = await invoke(handleRequest, {
       method: 'POST',
@@ -118,10 +120,26 @@ describe('api handlers', () => {
         password: 'IntegrationPass123!',
         fullName: 'Type2 Parent',
         role: 'parent',
+        diabetesType: 'type2',
       },
     });
     expect(setupType2.status).toBe(201);
+    expect(setupType2.json().householdReady).toBe(true);
     const type2Cookie = cookieFromResponse(setupType2, 't1d_sid');
+    const type2Workspace = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/workspace',
+      headers: {
+        cookie: `t1d_sid=${type2Cookie}`,
+        'content-type': 'application/json',
+        'x-t1d-lang': 'en',
+      },
+    });
+    expect(type2Workspace.status).toBe(200);
+    expect(type2Workspace.json().needsSetup).toBe(false);
+    expect(type2Workspace.json().household.diabetesType).toBe('type2');
+    expect(type2Workspace.json().household.safetyPreferences.daySensitivity).toBe('gentle');
+
     const type2Setup = await invoke(handleRequest, {
       method: 'POST',
       url: '/api/household/setup',

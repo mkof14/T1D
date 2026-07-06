@@ -179,7 +179,6 @@ export const useT1DAppController = () => {
     getWorkspace()
       .then((response) => {
         if (mounted) setWorkspace(response);
-        if (mounted && response.needsSetup) setRoute('setup');
       })
       .catch(() => {
         if (mounted) setWorkspace(null);
@@ -252,18 +251,14 @@ export const useT1DAppController = () => {
     };
   }, [authReady, route]);
 
-  const handleAuthSuccess = async (user: AccessUser, options?: { householdReady?: boolean }) => {
+  const handleAuthSuccess = async (user: AccessUser) => {
     setSession(user);
-    if (options?.householdReady) {
-      const nextWorkspace = await getWorkspace();
-      if (nextWorkspace.household?.diabetesType) {
-        setSignupDiabetesType(nextWorkspace.household.diabetesType);
-      }
-      setWorkspace(nextWorkspace);
-      setRoute('workspace');
-      return;
+    const nextWorkspace = await getWorkspace();
+    if (nextWorkspace.household?.diabetesType) {
+      setSignupDiabetesType(nextWorkspace.household.diabetesType);
     }
-    setRoute('setup');
+    setWorkspace(nextWorkspace);
+    setRoute('workspace');
   };
 
   const handleSetupComplete = async (household: HouseholdProfile) => {

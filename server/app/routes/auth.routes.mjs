@@ -13,6 +13,7 @@ import {
 } from '../../google-auth.mjs';
 import { findUserByEmailFromSql, isSqlReadEnabled } from '../../infrastructure/repositories/sql-read-service.mjs';
 import { dualWriteDeleteUser, dualWriteRevokeSessionsForUser } from '../../infrastructure/repositories/dual-write-service.mjs';
+import { provisionDefaultHouseholdForUser } from '../../services/provision-default-household.mjs';
 
 export const handleAuthRoutes = async (ctx) => {
   const {
@@ -56,7 +57,49 @@ export const handleAuthRoutes = async (ctx) => {
     redirectWithSession,
     readHouseholds,
     writeHouseholds,
+    persistHouseholdRecord,
+    updateUser,
+    normalizeDiabetesType,
+    defaultSafetyPreferences,
+    createDefaultSafetyState,
+    generateInviteCode,
   } = ctx;
+
+  const parseDiabetesType = (value) => (value === 'type2' ? 'type2' : 'type1');
+
+  const ensureUserHousehold = async (user, diabetesType) => {
+    if (!user?.id) return user;
+    return provisionDefaultHouseholdForUser({
+      user,
+      diabetesType: parseDiabetesType(diabetesType),
+      readHouseholds,
+      persistHouseholdRecord,
+      updateUser,
+      normalizeDiabetesType,
+      defaultSafetyPreferences,
+      createDefaultSafetyState,
+      generateInviteCode,
+    });
+  };
+
+  const sessionUserPayload = (user) => ({
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    organization: user.organization || '',
+  });
+
+  const finishAuthSession = async (req, res, user, diabetesType, status = 200) => {
+    const withHousehold = await ensureUserHousehold(user, diabetesType);
+    const nextSession = await createSessionForUser(withHousehold.id);
+    sendJson(res, status, {
+      user: sessionUserPayload(withHousehold),
+      householdReady: Boolean(withHousehold.householdId),
+    }, {
+      'Set-Cookie': createSessionCookie(nextSession.id, req),
+    });
+    return true;
+  };
 
   if (req.method === 'GET' && url.pathname === '/api/session') {
     const current = await findSessionUser(req);
@@ -76,7 +119,7 @@ export const handleAuthRoutes = async (ctx) => {
     return true;
   }
 
-  const completeGoogleSignIn = async (req, res, resolved, siteBase = SITE_URL.replace(/\/$/, '')) => {
+  const completeGoogleSignIn = async (req, res, resolved, diabetesType = 'type1') => {
     if (resolved.error === 'no_account') {
       sendJson(res, 409, { error: 'no_account' });
       return true;
@@ -87,19 +130,7 @@ export const handleAuthRoutes = async (ctx) => {
       return true;
     }
 
-    const nextSession = await createSessionForUser(resolved.user.id);
-    sendJson(res, 200, {
-      user: {
-        email: resolved.user.email,
-        fullName: resolved.user.fullName,
-        role: resolved.user.role,
-        organization: resolved.user.organization || '',
-      },
-      householdReady: Boolean(resolved.user.householdId),
-    }, {
-      'Set-Cookie': createSessionCookie(nextSession.id, req),
-    });
-    return true;
+    return finishAuthSession(req, res, resolved.user, diabetesType);
   };
 
   if (req.method === 'GET' && url.pathname === '/api/access/google/status') {
@@ -123,10 +154,12 @@ export const handleAuthRoutes = async (ctx) => {
       return true;
     }
 
+    const diabetesType = parseDiabetesType(body?.diabetesType);
+
     try {
       const profile = await verifyGoogleIdToken(credential);
       const resolved = await resolveGoogleUser({ profile, mode, role });
-      return completeGoogleSignIn(req, res, resolved);
+      return completeGoogleSignIn(req, res, resolved, diabetesType);
     } catch {
       sendJson(res, 401, { error: 'Invalid Google credential' });
       return true;
@@ -164,7 +197,8 @@ export const handleAuthRoutes = async (ctx) => {
     const mode = url.searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
     const role = safeRole(url.searchParams.get('role'));
     const redirectUri = resolveGoogleRedirectUri(req, url.searchParams.get('origin') || '');
-    const state = await createGoogleOAuthState({ mode, role, redirectUri });
+    const diabetesType = parseDiabetesType(url.searchParams.get('type'));
+    const state = await createGoogleOAuthState({ mode, role, redirectUri, diabetesType });
     applySecurityHeaders(res);
     res.writeHead(302, { Location: buildGoogleAuthUrl(state, redirectUri) });
     res.end();
@@ -215,8 +249,8 @@ export const handleAuthRoutes = async (ctx) => {
         return true;
       }
 
-      const targetPath = resolved.user.householdId ? '/workspace' : '/household-setup';
-      await redirectWithSession(res, req, resolved.user, targetPath, siteBase);
+      const withHousehold = await ensureUserHousehold(resolved.user, oauthState.diabetesType);
+      await redirectWithSession(res, req, withHousehold, '/workspace', siteBase);
     } catch {
       applySecurityHeaders(res);
       res.writeHead(302, { Location: errorRedirect });
@@ -416,22 +450,7 @@ export const handleAuthRoutes = async (ctx) => {
       await writeUsers(users);
       mirrorUsersToSql([nextUser]);
 
-      const nextSession = await createSessionForUser(nextUser.id);
-
-      sendJson(
-        res,
-        201,
-        {
-          user: {
-            email: nextUser.email,
-            fullName: nextUser.fullName,
-            role: nextUser.role,
-            organization: nextUser.organization,
-          },
-        },
-        { 'Set-Cookie': createSessionCookie(nextSession.id, req) }
-      );
-      return true;
+      return finishAuthSession(req, res, nextUser, body.diabetesType, 201);
     }
 
     let existing = users.find((entry) => entry.email === email);
@@ -443,21 +462,8 @@ export const handleAuthRoutes = async (ctx) => {
       return true;
     }
 
-    const nextSession = await createSessionForUser(existing.id);
-    sendJson(
-      res,
-      200,
-      {
-        user: {
-          email: existing.email,
-          fullName: existing.fullName,
-          role: existing.role,
-          organization: existing.organization || '',
-        },
-      },
-      { 'Set-Cookie': createSessionCookie(nextSession.id, req) }
-    );
-    return true;
+    const withHousehold = await ensureUserHousehold(existing, body.diabetesType);
+    return finishAuthSession(req, res, withHousehold, body.diabetesType);
   }
 
   return false;

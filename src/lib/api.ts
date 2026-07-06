@@ -409,6 +409,7 @@ export async function signInWithGoogle(body: {
   credential: string;
   mode: 'signin' | 'signup';
   role?: UserRole;
+  diabetesType?: DiabetesType;
 }) {
   const res = await fetch('/api/access/google/signin', {
     method: 'POST',
@@ -419,14 +420,14 @@ export async function signInWithGoogle(body: {
   return readJson<{ user: SessionUser; householdReady?: boolean }>(res);
 }
 
-export async function signIn(body: { email: string; password: string }) {
+export async function signIn(body: { email: string; password: string; diabetesType?: DiabetesType }) {
   const res = await fetch('/api/access/signin', {
     method: 'POST',
     headers: jsonHeaders,
     credentials: 'include',
     body: JSON.stringify(body),
   });
-  return readJson<{ user: SessionUser }>(res);
+  return readJson<{ user: SessionUser; householdReady?: boolean }>(res);
 }
 
 export async function signUp(body: {
@@ -435,6 +436,7 @@ export async function signUp(body: {
   fullName: string;
   role: UserRole;
   organization?: string;
+  diabetesType?: DiabetesType;
 }) {
   const res = await fetch('/api/access/signup', {
     method: 'POST',
@@ -442,7 +444,7 @@ export async function signUp(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   });
-  return readJson<{ user: SessionUser }>(res);
+  return readJson<{ user: SessionUser; householdReady?: boolean }>(res);
 }
 
 export async function signOut() {
