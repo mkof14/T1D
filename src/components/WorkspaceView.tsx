@@ -132,6 +132,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const [connectionBusy, setConnectionBusy] = React.useState(false);
   const [nutritionBusy, setNutritionBusy] = React.useState(false);
   const [inviteCopied, setInviteCopied] = React.useState(false);
+  const [oauthCode, setOauthCode] = React.useState('');
 
   React.useEffect(() => {
     setSelectedSessionId(workspace?.selectedSession?.id || workspace?.dailyHistory?.[0]?.id || null);
@@ -247,7 +248,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const contextualSummary = workspace.contextualSummary;
   const reviewLabel = (value: 'strong' | 'watch' | 'fragile') => value === 'strong' ? reviewCopy.strong : value === 'watch' ? reviewCopy.watch : reviewCopy.fragile;
   const patternLabel = (value: 'steady' | 'repeat-risk' | 'escalation-heavy') => value === 'steady' ? reviewCopy.steady : value === 'repeat-risk' ? reviewCopy.repeatRisk : reviewCopy.escalationHeavy;
-  const [oauthCode, setOauthCode] = React.useState('');
   const dexcomModeLabel = dexcom ? (dexcom.authMode === 'oauth_ready' ? dexcomCopy.oauth : dexcomCopy.mock) : '';
   const dexcomConfigLabel = dexcom ? (dexcom.configStatus === 'ready' ? dexcomCopy.ready : dexcomCopy.missing) : '';
   const dexcomTokenStatusLabel = dexcom ? ({
