@@ -1,25 +1,12 @@
 import { expect, test } from '@playwright/test';
-
-const uniqueEmail = () => `reset-${Date.now()}@example.com`;
+import { completeSignupFlow, signIn, uniqueEmail } from './helpers/auth-flow.mjs';
 
 test('password reset request and confirm', async ({ page, request }) => {
-  const email = uniqueEmail();
+  const email = uniqueEmail('reset');
   const password = 'TestPass123!';
   const newPassword = 'NewPass123!';
 
-  await page.goto('/create-account?type=type1');
-  await page.getByPlaceholder('Taylor Morgan').fill('Reset Parent');
-  await page.locator('select').selectOption('parent');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="password"]').fill(password);
-  await page.getByPlaceholder(/Mila Support Circle|Ночной Круг/i).fill('Reset Circle');
-  await page.getByPlaceholder(/^Mila$|Мила/).fill('Mila');
-  await page.getByPlaceholder(/8-12/).fill('8-12');
-  await page.getByPlaceholder(/Anna Rivera|Анна/i).fill('Anna');
-  await page.getByPlaceholder(/Jordan Lee|Джордан/i).fill('Jordan');
-  await page.getByPlaceholder(/10:00 PM|22:00/).fill('10:00 PM - 7:00 AM');
-  await page.getByRole('button', { name: /create account & family|создать аккаунт и семью/i }).click();
-  await expect(page).toHaveURL(/\/workspace/, { timeout: 15000 });
+  await completeSignupFlow(page, { email, password });
 
   const resetResponse = await request.post('http://127.0.0.1:8791/api/access/password-reset/request', {
     data: { email },
@@ -35,9 +22,5 @@ test('password reset request and confirm', async ({ page, request }) => {
   });
   expect(confirmResponse.ok()).toBeTruthy();
 
-  await page.goto('/access');
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="password"]').fill(newPassword);
-  await page.getByRole('button', { name: /sign in|войти/i }).click();
-  await expect(page).toHaveURL(/\/workspace/, { timeout: 15000 });
+  await signIn(page, { email, password: newPassword });
 });
