@@ -134,7 +134,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const [inviteCopied, setInviteCopied] = React.useState(false);
 
   React.useEffect(() => {
-    setSelectedSessionId(workspace?.selectedSession?.id || workspace?.dailyHistory[0]?.id || null);
+    setSelectedSessionId(workspace?.selectedSession?.id || workspace?.dailyHistory?.[0]?.id || null);
   }, [workspace?.selectedSession?.id, workspace?.dailyHistory]);
   React.useEffect(() => {
     const prefs = workspace?.household?.safetyPreferences;
