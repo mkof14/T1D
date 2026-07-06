@@ -75,14 +75,14 @@ export const T1DTopbar: React.FC<T1DTopbarProps> = ({
             </span>
           ) : null}
         </button>
-        <nav className={`hidden md:flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <nav className={`t1d-topbar-nav flex min-w-0 flex-1 items-center justify-center gap-2 overflow-x-auto px-1 scrollbar-thin md:gap-4 md:justify-start ${isRTL ? 'flex-row-reverse' : ''}`}>
           {headerPages.map((page, index) => (
             <React.Fragment key={page}>
               {index > 0 ? <span className={theme === 'dark' ? 'text-slate-600' : 'text-slate-300'}>·</span> : null}
               <button
                 type="button"
                 onClick={() => onNavigate(page)}
-                className={`text-[0.98rem] transition-colors ${
+                className={`shrink-0 whitespace-nowrap text-[0.92rem] transition-colors ${
                   activePage === page
                     ? theme === 'dark'
                       ? 'text-amber-200'

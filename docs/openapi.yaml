@@ -298,6 +298,118 @@ paths:
           description: Feedback stored
         '400':
           description: Validation error
+  /account/delete:
+    post:
+      summary: Delete signed-in account
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                confirm:
+                  type: boolean
+      responses:
+        '200':
+          description: Account deleted
+        '401':
+          description: Unauthorized or invalid password
+  /access/google/status:
+    get:
+      summary: Google OAuth availability
+      responses:
+        '200':
+          description: Google auth status
+  /admin/summary:
+    get:
+      summary: Admin operational summary
+      security:
+        - cronBearer: []
+      responses:
+        '200':
+          description: KV/SQL counts and recommendations
+        '401':
+          description: Unauthorized admin request
+  /admin/households:
+    get:
+      summary: Admin household list
+      security:
+        - cronBearer: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            maximum: 50
+      responses:
+        '200':
+          description: Household summaries
+  /push/config:
+    get:
+      summary: Web Push configuration and subscription status
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: VAPID public key and subscription count
+  /push/subscribe:
+    post:
+      summary: Register a Web Push subscription
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, keys]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+                keys:
+                  type: object
+                  required: [p256dh, auth]
+                  properties:
+                    p256dh:
+                      type: string
+                    auth:
+                      type: string
+      responses:
+        '200':
+          description: Subscription stored
+        '400':
+          description: Invalid subscription payload
+        '401':
+          description: Unauthorized
+        '503':
+          description: Push not configured (missing VAPID keys)
+  /push/unsubscribe:
+    post:
+      summary: Remove a Web Push subscription
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Subscription removed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Endpoint belongs to another user
 components:
   securitySchemes:
     cookieAuth:

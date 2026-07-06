@@ -8,7 +8,7 @@ import {
   buildPatientTimeline,
   findActiveAlertId,
 } from '../../domain/timeline/timeline-service.mjs';
-import { queueInAppNotification } from '../../services/notification-service.mjs';
+import { orchestrateResponderAction } from '../../services/notification-orchestrator.mjs';
 import { dualWriteAlertResponderAction } from '../../infrastructure/repositories/dual-write-service.mjs';
 
 export const handleAlertTimelineRoutes = async (ctx) => {
@@ -104,15 +104,12 @@ export const handleAlertTimelineRoutes = async (ctx) => {
       return true;
     }
 
-    if (action === 'acknowledge') {
-      queueInAppNotification({
-        householdId: household.id,
-        alertId: resolvedAlertId,
-        recipientRole: current.user.role,
-        recipientName: current.user.fullName || current.user.email,
-        payload: { kind: 'acknowledgement' },
-      });
-    }
+    void orchestrateResponderAction({
+      householdId: household.id,
+      alertId: resolvedAlertId,
+      user: current.user,
+      action,
+    });
 
     const nextHousehold = {
       ...household,

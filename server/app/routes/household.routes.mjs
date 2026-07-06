@@ -247,6 +247,17 @@ export const handleHouseholdRoutes = async (ctx) => {
     const dayPrimaryContact = normalizePrimaryContact(body.dayPrimaryContact, currentHousehold);
     const nightPrimaryContact = normalizePrimaryContact(body.nightPrimaryContact, currentHousehold);
     const glucoseUnit = body.glucoseUnit === 'mmol/L' ? 'mmol/L' : 'mg/dL';
+    const normalizePhone = (value) => {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return '';
+      return trimmed.startsWith('+') ? trimmed.slice(0, 24) : '';
+    };
+    const existingPhones = currentHousehold?.safetyPreferences?.contactPhones || {};
+    const contactPhones = {
+      parent: normalizePhone(body.contactPhones?.parent ?? existingPhones.parent),
+      adult: normalizePhone(body.contactPhones?.adult ?? existingPhones.adult),
+      caregiver: normalizePhone(body.contactPhones?.caregiver ?? existingPhones.caregiver),
+    };
     const householdIndex = households.findIndex((entry) => entry.id === current.user.householdId);
     if (householdIndex === -1) {
       sendJson(res, 400, { error: 'Household setup is required first' });
@@ -262,6 +273,7 @@ export const handleHouseholdRoutes = async (ctx) => {
         dayPrimaryContact,
         nightPrimaryContact,
         glucoseUnit,
+        contactPhones,
       },
       updatedAt: new Date().toISOString(),
     };

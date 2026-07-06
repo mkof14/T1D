@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { sendPushNotification, sendSmsNotification } from './push-provider.mjs';
 
 export const DELIVERY_STATES = Object.freeze([
   'created',
@@ -64,13 +65,37 @@ export const queueInAppNotification = (params) => {
   return transitionDelivery(created.id, 'queued');
 };
 
-/** Placeholder providers — do not claim delivery without provider confirmation. */
+/** Dispatch through configured providers. In-app is always delivered locally. */
 export const dispatchNotification = async (deliveryId) => {
   const record = deliveries.get(deliveryId);
   if (!record) return null;
+
   if (record.channel === 'in_app') {
     return transitionDelivery(deliveryId, 'delivered', { provider: 'in_app' });
   }
+
+  if (record.channel === 'push') {
+    const result = await sendPushNotification(record);
+    if (result.ok) {
+      return transitionDelivery(deliveryId, 'delivered', { provider: result.provider });
+    }
+    return transitionDelivery(deliveryId, result.state || 'queued', {
+      provider: result.provider,
+      note: result.note,
+    });
+  }
+
+  if (record.channel === 'sms') {
+    const result = await sendSmsNotification(record);
+    if (result.ok) {
+      return transitionDelivery(deliveryId, 'delivered', { provider: result.provider });
+    }
+    return transitionDelivery(deliveryId, result.state || 'queued', {
+      provider: result.provider,
+      note: result.note,
+    });
+  }
+
   return transitionDelivery(deliveryId, 'queued', { provider: 'placeholder', note: 'External provider not connected' });
 };
 

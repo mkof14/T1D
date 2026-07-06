@@ -35,6 +35,11 @@ export interface SafetyPreferences {
   dayPrimaryContact: 'parent' | 'adult' | 'caregiver';
   nightPrimaryContact: 'parent' | 'adult' | 'caregiver';
   glucoseUnit: 'mg/dL' | 'mmol/L';
+  contactPhones?: {
+    parent?: string;
+    adult?: string;
+    caregiver?: string;
+  };
 }
 
 export interface DexcomReading {
@@ -346,6 +351,11 @@ export interface SafetyPreferencesInput {
   dayPrimaryContact: SafetyPreferences['dayPrimaryContact'];
   nightPrimaryContact: SafetyPreferences['nightPrimaryContact'];
   glucoseUnit: SafetyPreferences['glucoseUnit'];
+  contactPhones?: {
+    parent?: string;
+    adult?: string;
+    caregiver?: string;
+  };
 }
 
 const jsonHeaders = {
@@ -379,19 +389,35 @@ export async function getSession() {
   return readJson<{ authenticated: boolean; user?: SessionUser }>(res);
 }
 
+export type GoogleAuthStatus = {
+  enabled: boolean;
+  flow: string;
+  clientId?: string;
+  javascriptOrigins?: string[];
+  setupHint?: string;
+};
+
 export async function getGoogleAuthStatus() {
   const res = await fetch('/api/access/google/status', {
     credentials: 'include',
     headers: langHeaders(),
   });
-  return readJson<{ enabled: boolean; startPath: string }>(res);
+  return readJson<GoogleAuthStatus>(res);
 }
 
-export const startGoogleAuth = (mode: 'signin' | 'signup', role?: UserRole) => {
-  const params = new URLSearchParams({ mode });
-  if (mode === 'signup' && role) params.set('role', role);
-  window.location.assign(`/api/access/google/start?${params.toString()}`);
-};
+export async function signInWithGoogle(body: {
+  credential: string;
+  mode: 'signin' | 'signup';
+  role?: UserRole;
+}) {
+  const res = await fetch('/api/access/google/signin', {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  return readJson<{ user: SessionUser; householdReady?: boolean }>(res);
+}
 
 export async function signIn(body: { email: string; password: string }) {
   const res = await fetch('/api/access/signin', {
@@ -544,6 +570,16 @@ export async function confirmPasswordReset(token: string, password: string) {
   return readJson<{ ok: boolean }>(res);
 }
 
+export async function deleteAccount(body: { password?: string; confirm?: boolean }) {
+  const res = await fetch('/api/account/delete', {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  return readJson<{ ok: boolean }>(res);
+}
+
 export async function saveSafetyPreferences(body: SafetyPreferencesInput) {
   const res = await fetch('/api/preferences', {
     method: 'POST',
@@ -635,4 +671,112 @@ export async function takeAlertOwnership(alertId: string) {
 
 export async function resolveAlert(alertId: string) {
   return postAlertAction(alertId, 'resolve');
+}
+
+export interface AdminSummaryPayload {
+  ok: boolean;
+  service: string;
+  timestamp: string;
+  storage: string;
+  sqlRead: string;
+  rateLimit: string;
+  dexcomLive: boolean;
+  alertRuleVersion: string;
+  kv: {
+    households: number;
+    users: number;
+    activeAlerts: number;
+    inMemoryNotifications: number;
+  };
+  sql: {
+    households: number;
+    users: number;
+    active_alerts: number;
+    notification_deliveries: number;
+    escalations: number;
+    glucose_readings: number;
+    audit_events: number;
+  } | null;
+  recommendations: string[];
+}
+
+export interface AdminHouseholdItem {
+  id: string;
+  householdName: string;
+  diabetesType: string;
+  stage: string;
+  responderState: string;
+  alertsCount: number;
+  dexcomStatus: string;
+  updatedAt?: string;
+}
+
+export interface AdminHouseholdsPayload {
+  ok: boolean;
+  total: number;
+  items: AdminHouseholdItem[];
+}
+
+const adminHeaders = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  ...langHeaders(),
+});
+
+async function readAdminJson<T>(res: Response): Promise<T> {
+  const data = await res.json();
+  if (!res.ok) {
+    const error = new Error(data?.error || `Request failed: ${res.status}`) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
+  }
+  return data as T;
+}
+
+export async function getAdminSummary(token: string) {
+  const res = await fetch('/api/admin/summary', {
+    headers: adminHeaders(token),
+  });
+  return readAdminJson<AdminSummaryPayload>(res);
+}
+
+export async function getAdminHouseholds(token: string, limit = 20) {
+  const res = await fetch(`/api/admin/households?limit=${limit}`, {
+    headers: adminHeaders(token),
+  });
+  return readAdminJson<AdminHouseholdsPayload>(res);
+}
+
+export interface PushConfigPayload {
+  enabled: boolean;
+  publicKey: string;
+  subscribed: boolean;
+  subscriptionCount: number;
+}
+
+export async function getPushConfig() {
+  const res = await fetch('/api/push/config', {
+    credentials: 'include',
+    headers: langHeaders(),
+  });
+  return readJson<PushConfigPayload>(res);
+}
+
+export async function registerPushSubscription(subscription: PushSubscriptionJSON) {
+  const res = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(subscription),
+  });
+  return readJson<{ ok: boolean; subscriptionId: string }>(res);
+}
+
+export async function unregisterPushSubscription(endpoint: string) {
+  const res = await fetch('/api/push/unsubscribe', {
+    method: 'POST',
+    headers: requestHeaders(),
+    credentials: 'include',
+    body: JSON.stringify({ endpoint }),
+  });
+  return readJson<{ ok: boolean; removed: boolean }>(res);
 }

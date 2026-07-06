@@ -133,7 +133,7 @@ export const createAuthStorage = ({
     return match;
   };
 
-  const createGoogleOAuthState = async ({ mode, role }) => {
+  const createGoogleOAuthState = async ({ mode, role, redirectUri }) => {
     const token = randomBytes(12).toString('hex');
     const states = await readOAuthStates();
     states.push({
@@ -141,6 +141,7 @@ export const createAuthStorage = ({
       kind: 'google',
       mode: mode === 'signup' ? 'signup' : 'signin',
       role: safeRole(role),
+      redirectUri: String(redirectUri || '').trim(),
       expiresAt: Date.now() + 1000 * 60 * 15,
     });
     await writeOAuthStates(states.slice(-100));
@@ -160,11 +161,11 @@ export const createAuthStorage = ({
     return nextSession;
   };
 
-  const redirectWithSession = async (res, req, user, targetPath) => {
+  const redirectWithSession = async (res, req, user, targetPath, siteBase = SITE_URL) => {
     const nextSession = await createSessionForUser(user.id);
     applySecurityHeaders(res);
     res.writeHead(302, {
-      Location: `${SITE_URL.replace(/\/$/, '')}${targetPath}`,
+      Location: `${String(siteBase).replace(/\/$/, '')}${targetPath}`,
       'Set-Cookie': createSessionCookie(nextSession.id, req),
     });
     res.end();

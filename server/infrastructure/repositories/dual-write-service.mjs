@@ -9,9 +9,13 @@ import {
   upsertAlertRow,
 } from './alert-repository.mjs';
 import { insertAuditEventRow } from './audit-repository.mjs';
+import {
+  insertEscalationRow,
+  upsertNotificationDeliveryRow,
+} from './notification-repository.mjs';
 import { randomBytes } from 'node:crypto';
 import { insertGlucoseReadingWithPool } from './glucose-reading-repository.mjs';
-import { upsertUserRow } from './user-repository.mjs';
+import { upsertUserRow, deleteUserRow } from './user-repository.mjs';
 import {
   revokeSessionRow,
   revokeSessionsForUserRows,
@@ -298,6 +302,70 @@ export const dualWriteAlertResponderAction = async ({ household, user, action, a
     return { ok: true, skipped: false };
   } catch (error) {
     return { ok: false, skipped: false, error: error?.message || 'alert_action_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteNotificationDelivery = async (delivery) => {
+  if (!delivery?.id || !delivery?.householdId) {
+    return { ok: true, skipped: true, reason: 'missing_delivery' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await ensureHouseholdRow(pool, { id: delivery.householdId, householdName: 'Household', inviteCode: 'UNKNOWN' });
+    await upsertNotificationDeliveryRow(pool, delivery);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'notification_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteEscalation = async (escalation) => {
+  if (!escalation?.id || !escalation?.alertId) {
+    return { ok: true, skipped: true, reason: 'missing_escalation' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    if (escalation.householdId) {
+      await ensureHouseholdRow(pool, { id: escalation.householdId, householdName: 'Household', inviteCode: 'UNKNOWN' });
+    }
+    await insertEscalationRow(pool, escalation);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'escalation_dual_write_failed' };
+  } finally {
+    await pool.end();
+  }
+};
+
+export const dualWriteDeleteUser = async (userId) => {
+  if (!userId) {
+    return { ok: true, skipped: true, reason: 'missing_user' };
+  }
+
+  const pool = await getPool();
+  if (!pool) {
+    return { ok: false, skipped: true, reason: 'DATABASE_URL not set' };
+  }
+
+  try {
+    await deleteUserRow(pool, userId);
+    return { ok: true, skipped: false };
+  } catch (error) {
+    return { ok: false, skipped: false, error: error?.message || 'user_delete_failed' };
   } finally {
     await pool.end();
   }

@@ -19,6 +19,7 @@ const {
   shouldRunBackgroundDexcomPoll,
   applyDexcomPollToHousehold,
   appendDexcomAudit,
+  runEscalationPass,
 } = createApp({ serverDir: __dirname });
 
 export { handleRequest };
@@ -37,6 +38,7 @@ if (isDirectRun) {
     shouldRunBackgroundDexcomPoll,
     applyDexcomPollToHousehold,
     appendDexcomAudit,
+    runEscalationPass,
     logger: console,
   });
 }

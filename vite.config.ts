@@ -23,6 +23,14 @@ export default defineConfig({
       '/api': {
         target: `http://127.0.0.1:${process.env.T1D_API_PORT || 8790}`,
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.headers.host) {
+              proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+              proxyReq.setHeader('X-Forwarded-Proto', 'http');
+            }
+          });
+        },
       },
     },
   },

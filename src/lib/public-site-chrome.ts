@@ -14,7 +14,7 @@ export const buildPublicSiteChrome = (lang: Language, basePath?: string) => {
   const knowledgeLabels = KNOWLEDGE_LABELS.footer[lang];
   const knowledgePageLabels = KNOWLEDGE_LABELS.pages[lang];
   const pagePaths = buildPagePaths(basePath);
-  const headerPages = pageOrder.filter((page) => page !== 'trust') as CorePage[];
+  const headerPages = pageOrder;
   const footerProductLinks = pageOrder.map((page) => ({ id: page, label: copy.nav[page] }));
   const footerKnowledgeLinks = [
     { id: 'how', label: knowledgeLabels.how },

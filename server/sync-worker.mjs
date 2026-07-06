@@ -5,6 +5,7 @@ export const startDexcomSyncWorker = ({
   shouldRunBackgroundDexcomPoll,
   applyDexcomPollToHousehold,
   appendDexcomAudit,
+  runEscalationPass,
   logger = console,
 }) => {
   let inFlight = false;
@@ -83,6 +84,10 @@ export const startDexcomSyncWorker = ({
 
       if (changed) {
         await writeHouseholds(nextHouseholds);
+      }
+
+      if (runEscalationPass) {
+        await runEscalationPass();
       }
     } finally {
       inFlight = false;

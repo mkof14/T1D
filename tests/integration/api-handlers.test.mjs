@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,11 +10,13 @@ let dataDir;
 beforeAll(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 't1d-api-int-'));
   process.env.T1D_DATA_DIR = dataDir;
-  delete process.env.DATABASE_URL;
+  process.env.T1D_CRON_SECRET = 'integration-admin-secret';
+  process.env.DATABASE_URL = ' ';
   delete process.env.T1D_GOOGLE_CLIENT_ID;
   delete process.env.T1D_GOOGLE_CLIENT_SECRET;
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
+  vi.resetModules();
   ({ handleRequest } = await import('../../server/index.mjs'));
   process.env.T1D_GOOGLE_CLIENT_ID = '';
   process.env.T1D_GOOGLE_CLIENT_SECRET = '';
@@ -50,7 +52,13 @@ describe('api handlers', () => {
   it('reports google auth availability', async () => {
     const response = await invoke(handleRequest, { method: 'GET', url: '/api/access/google/status' });
     expect(response.status).toBe(200);
-    expect(response.json()).toEqual({ enabled: false, startPath: '/api/access/google/start' });
+    expect(response.json()).toEqual({
+      enabled: false,
+      flow: 'google-identity-services',
+      clientId: '',
+      javascriptOrigins: expect.any(Array),
+      setupHint: expect.any(String),
+    });
   });
 
   it('signs up, loads workspace, and accepts feedback', async () => {
@@ -200,5 +208,120 @@ describe('api handlers', () => {
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toContain('yaml');
     expect(response.text()).toContain('openapi:');
+  });
+
+  it('deletes account after password confirmation', async () => {
+    const email = `delete-${Date.now()}@example.com`;
+    const password = 'IntegrationPass123!';
+    const signup = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/access/signup',
+      headers: { 'content-type': 'application/json' },
+      body: {
+        email,
+        password,
+        fullName: 'Delete Me',
+        role: 'parent',
+      },
+    });
+    expect(signup.status).toBe(201);
+    const sessionCookie = cookieFromResponse(signup, 't1d_sid');
+
+    const deleted = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/account/delete',
+      headers: {
+        cookie: `t1d_sid=${sessionCookie}`,
+        'content-type': 'application/json',
+      },
+      body: { password },
+    });
+    expect(deleted.status).toBe(200);
+    expect(deleted.json().ok).toBe(true);
+
+    const sessionAfter = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/session',
+      headers: { cookie: `t1d_sid=${sessionCookie}` },
+    });
+    expect(sessionAfter.json().authenticated).toBe(false);
+  });
+
+  it('returns admin summary with bearer secret', async () => {
+    const response = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/admin/summary',
+      headers: { authorization: 'Bearer integration-admin-secret' },
+    });
+    expect(response.status).toBe(200);
+    expect(response.json().ok).toBe(true);
+    expect(response.json().kv).toBeTruthy();
+    expect(Array.isArray(response.json().recommendations)).toBe(true);
+  });
+
+  it('runs cron escalation pass for stale alerts', async () => {
+    const email = `cron-${Date.now()}@example.com`;
+    const signup = await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/access/signup',
+      headers: { 'content-type': 'application/json' },
+      body: {
+        email,
+        password: 'IntegrationPass123!',
+        fullName: 'Cron Parent',
+        role: 'parent',
+      },
+    });
+    const sessionCookie = cookieFromResponse(signup, 't1d_sid');
+    await invoke(handleRequest, {
+      method: 'POST',
+      url: '/api/household/setup',
+      headers: {
+        cookie: `t1d_sid=${sessionCookie}`,
+        'content-type': 'application/json',
+      },
+      body: {
+        householdName: 'Cron Circle',
+        childName: 'Mila',
+        childAgeBand: '8-12',
+        primaryParent: 'Anna',
+        caregiverName: 'Jordan',
+        nightWindow: '10:00 PM - 7:00 AM',
+        diabetesType: 'type1',
+      },
+    });
+
+    const { readFileSync, writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const householdsPath = join(dataDir, 'households.json');
+    const payload = JSON.parse(readFileSync(householdsPath, 'utf8'));
+    const household = payload.households[0];
+    household.safetyPreferences = {
+      ...(household.safetyPreferences || {}),
+      caregiverDelaySeconds: 20,
+    };
+    household.safetyState = {
+      ...(household.safetyState || {}),
+      stage: 'parent_alerted',
+      escalationCount: 0,
+      lastAlertAt: new Date(Date.now() - 120_000).toISOString(),
+      responderOwnership: {
+        state: 'notified',
+        primaryRole: 'parent',
+        primaryName: 'Anna',
+        alertId: 'alert-cron-1',
+        notifiedAt: new Date(Date.now() - 120_000).toISOString(),
+      },
+      eventLog: [{ id: 'alert-cron-1', kind: 'alert', status: 'active' }],
+    };
+    writeFileSync(householdsPath, JSON.stringify(payload));
+
+    const cron = await invoke(handleRequest, {
+      method: 'GET',
+      url: '/api/cron/dexcom-sync',
+      headers: { authorization: 'Bearer integration-admin-secret' },
+    });
+    expect(cron.status).toBe(200);
+    expect(cron.json().escalation?.escalated).toBeGreaterThan(0);
   });
 });

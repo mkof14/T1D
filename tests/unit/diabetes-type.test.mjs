@@ -15,7 +15,8 @@ describe('diabetes-type', () => {
       caregiverDelaySeconds: 60,
       dayPrimaryContact: 'parent',
       nightPrimaryContact: 'parent',
-      glucoseUnit: 'mmol/L',
+      glucoseUnit: 'mg/dL',
+      contactPhones: { parent: '', adult: '', caregiver: '' },
     });
   });
 
@@ -27,6 +28,7 @@ describe('diabetes-type', () => {
       dayPrimaryContact: 'parent',
       nightPrimaryContact: 'parent',
       glucoseUnit: 'mmol/L',
+      contactPhones: { parent: '', adult: '', caregiver: '' },
     });
   });
 });

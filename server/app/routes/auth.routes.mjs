@@ -1,12 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { applySecurityHeaders } from '../../security-headers.mjs';
 import {
-  buildGoogleAuthUrl,
-  exchangeGoogleCode,
-  fetchGoogleProfile,
+  googleAuthConfig,
+  googleJavascriptOrigins,
   isGoogleAuthEnabled,
+  verifyGoogleIdToken,
 } from '../../google-auth.mjs';
 import { findUserByEmailFromSql, isSqlReadEnabled } from '../../infrastructure/repositories/sql-read-service.mjs';
+import { dualWriteDeleteUser, dualWriteRevokeSessionsForUser } from '../../infrastructure/repositories/dual-write-service.mjs';
 
 export const handleAuthRoutes = async (ctx) => {
   const {
@@ -43,11 +43,9 @@ export const handleAuthRoutes = async (ctx) => {
     SESSION_COOKIE,
     clearSessionCookie,
     createSessionCookie,
-    SITE_URL,
-    createGoogleOAuthState,
-    consumeOAuthState,
     resolveGoogleUser,
-    redirectWithSession,
+    readHouseholds,
+    writeHouseholds,
   } = ctx;
 
   if (req.method === 'GET' && url.pathname === '/api/session') {
@@ -69,14 +67,18 @@ export const handleAuthRoutes = async (ctx) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/access/google/status') {
+    const { clientId } = googleAuthConfig();
     sendJson(res, 200, {
       enabled: isGoogleAuthEnabled(),
-      startPath: '/api/access/google/start',
+      flow: 'google-identity-services',
+      clientId: isGoogleAuthEnabled() ? clientId : '',
+      javascriptOrigins: googleJavascriptOrigins(),
+      setupHint: 'Add javascriptOrigins to your Web application OAuth client in Google Cloud Console.',
     });
     return true;
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/access/google/start') {
+  if (req.method === 'POST' && url.pathname === '/api/access/google/signin') {
     if (!isGoogleAuthEnabled()) {
       sendJson(res, 503, { error: 'Google sign-in is not configured' });
       return true;
@@ -88,57 +90,44 @@ export const handleAuthRoutes = async (ctx) => {
       return true;
     }
 
-    const mode = url.searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
-    const role = safeRole(url.searchParams.get('role'));
-    const state = await createGoogleOAuthState({ mode, role });
-    applySecurityHeaders(res);
-    res.writeHead(302, { Location: buildGoogleAuthUrl(state) });
-    res.end();
-    return true;
-  }
+    const body = await readBody(req);
+    const credential = safeText(body?.credential, 8192);
+    const mode = body?.mode === 'signup' ? 'signup' : 'signin';
+    const role = safeRole(body?.role);
 
-  if (req.method === 'GET' && url.pathname === '/api/access/google/callback') {
-    const code = safeText(url.searchParams.get('code'), 240);
-    const stateToken = safeText(url.searchParams.get('state'), 120);
-    const oauthState = stateToken ? await consumeOAuthState(stateToken) : null;
-    const errorRedirect = `${SITE_URL.replace(/\/$/, '')}/access?google_auth=error`;
-
-    if (!code || !oauthState || oauthState.kind !== 'google') {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: errorRedirect });
-      res.end();
+    if (!credential) {
+      sendJson(res, 400, { error: 'Missing Google credential' });
       return true;
     }
 
     try {
-      const tokenPayload = await exchangeGoogleCode(code);
-      const profile = await fetchGoogleProfile(tokenPayload.access_token);
-      const resolved = await resolveGoogleUser({
-        profile,
-        mode: oauthState.mode,
-        role: oauthState.role,
-      });
+      const profile = await verifyGoogleIdToken(credential);
+      const resolved = await resolveGoogleUser({ profile, mode, role });
 
       if (resolved.error === 'no_account') {
-        applySecurityHeaders(res);
-        res.writeHead(302, { Location: `${SITE_URL.replace(/\/$/, '')}/create-account?google_auth=no_account` });
-        res.end();
+        sendJson(res, 404, { error: 'no_account' });
         return true;
       }
 
       if (resolved.error || !resolved.user) {
-        applySecurityHeaders(res);
-        res.writeHead(302, { Location: errorRedirect });
-        res.end();
+        sendJson(res, 401, { error: 'Google sign-in failed' });
         return true;
       }
 
-      const targetPath = resolved.user.householdId ? '/workspace' : '/household-setup';
-      await redirectWithSession(res, req, resolved.user, targetPath);
+      const nextSession = await createSessionForUser(resolved.user.id);
+      sendJson(res, 200, {
+        user: {
+          email: resolved.user.email,
+          fullName: resolved.user.fullName,
+          role: resolved.user.role,
+          organization: resolved.user.organization || '',
+        },
+        householdReady: Boolean(resolved.user.householdId),
+      }, {
+        'Set-Cookie': createSessionCookie(nextSession.id, req),
+      });
     } catch {
-      applySecurityHeaders(res);
-      res.writeHead(302, { Location: errorRedirect });
-      res.end();
+      sendJson(res, 401, { error: 'Invalid Google credential' });
     }
     return true;
   }
@@ -231,6 +220,61 @@ export const handleAuthRoutes = async (ctx) => {
     mirrorUsersToSql([nextUsers.find((entry) => entry.id === match.userId)].filter(Boolean));
     await invalidateSessionsForUser(match.userId);
     sendJson(res, 200, { ok: true });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/account/delete') {
+    const current = await findSessionUser(req);
+    if (!current) {
+      sendJson(res, 401, { error: 'Unauthorized' });
+      return true;
+    }
+
+    const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      sendJson(res, 413, { error: 'Request body too large' });
+      return true;
+    }
+
+    const requiresPassword = Boolean(current.user.passwordHash);
+    if (requiresPassword) {
+      const password = safeText(body?.password, 200);
+      if (!password || !verifyPassword(password, current.user.passwordHash)) {
+        sendJson(res, 401, { error: 'Password is incorrect' });
+        return true;
+      }
+    } else if (body?.confirm !== true) {
+      sendJson(res, 400, { error: 'Confirmation is required' });
+      return true;
+    }
+
+    const users = await readUsers();
+    const nextUsers = users.filter((entry) => entry.id !== current.user.id);
+    await writeUsers(nextUsers);
+    await invalidateSessionsForUser(current.user.id);
+
+    const households = await readHouseholds();
+    const nextHouseholds = households.map((household) => {
+      if (household.id !== current.user.householdId) return household;
+      const members = Array.isArray(household.members)
+        ? household.members.filter((member) => member.email !== current.user.email)
+        : household.members;
+      return {
+        ...household,
+        members,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    await writeHouseholds(nextHouseholds);
+
+    void dualWriteDeleteUser(current.user.id).then((result) => {
+      if (!result.ok && !result.skipped) {
+        console.warn('[t1d-api] user delete dual-write failed', result.error);
+      }
+    });
+    void dualWriteRevokeSessionsForUser(current.user.id);
+
+    sendJson(res, 200, { ok: true }, { 'Set-Cookie': clearSessionCookie() });
     return true;
   }
 

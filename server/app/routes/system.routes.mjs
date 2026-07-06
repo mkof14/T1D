@@ -15,6 +15,7 @@ export const handleSystemRoutes = async (ctx) => {
     safeEqualString,
     CRON_SECRET,
     runBackgroundDexcomSync,
+    runEscalationPass,
   } = ctx;
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
@@ -61,8 +62,9 @@ export const handleSystemRoutes = async (ctx) => {
       sendJson(res, 401, { error: 'Unauthorized cron request' });
       return true;
     }
-    const result = await runBackgroundDexcomSync();
-    sendJson(res, 200, { ok: true, ...result });
+    const dexcomResult = await runBackgroundDexcomSync();
+    const escalationResult = runEscalationPass ? await runEscalationPass() : { processed: 0, escalated: 0 };
+    sendJson(res, 200, { ok: true, ...dexcomResult, escalation: escalationResult });
     return true;
   }
 

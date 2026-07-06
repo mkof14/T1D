@@ -7,6 +7,8 @@ const queries = {
   device_connections: 'SELECT COUNT(*)::int AS count FROM device_connections',
   oauth_credentials: 'SELECT COUNT(*)::int AS count FROM oauth_credentials',
   alerts: 'SELECT COUNT(*)::int AS count FROM alerts',
+  notification_deliveries: 'SELECT COUNT(*)::int AS count FROM notification_deliveries',
+  escalations: 'SELECT COUNT(*)::int AS count FROM escalations',
   audit_events: 'SELECT COUNT(*)::int AS count FROM audit_events',
   users: 'SELECT COUNT(*)::int AS count FROM users',
   sessions: 'SELECT COUNT(*)::int AS count FROM sessions WHERE revoked_at IS NULL',

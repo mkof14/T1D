@@ -30,12 +30,19 @@ The database password was exposed in chat. Treat it as compromised.
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials**
 2. Select your OAuth 2.0 Client ID (the one matching `T1D_GOOGLE_CLIENT_ID` in `.env.local`)
-3. Under **Authorized redirect URIs**, add:
+3. Under **Authorized redirect URIs**, add **all** that you use:
    ```
+   http://127.0.0.1:3002/api/access/google/callback
+   http://localhost:3002/api/access/google/callback
    https://t1-d.vercel.app/api/access/google/callback
    ```
-4. Save
-5. Test: open https://t1-d.vercel.app/access → **Sign in with Google**
+   Google requires an **exact** match — `localhost` and `127.0.0.1` are different hosts.
+4. In `.env.local`, either leave `T1D_GOOGLE_REDIRECT_URI` empty (uses `T1D_SITE_URL`) or set it to the same host you open in the browser, e.g.:
+   ```
+   T1D_SITE_URL=http://127.0.0.1:3002
+   T1D_GOOGLE_REDIRECT_URI=http://127.0.0.1:3002/api/access/google/callback
+   ```
+5. Save in Google Console, restart local API (`node server/index.mjs`), then test Google sign-in.
 
 ## 3. SQL parity + shadow mode (~5 min)
 

@@ -1692,7 +1692,7 @@ export const COPY: Record<Language, Copy> = {
   },
   };
 
-export const pageOrder: CorePage[] = ['home', 'system', 'night', 'family'];
+export const pageOrder: CorePage[] = ['home', 'system', 'night', 'family', 'trust'];
 
 const normalizeBasePath = (basePath?: string) => {
   if (!basePath || basePath === '/') return '';

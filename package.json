@@ -24,15 +24,22 @@
     "db:backfill": "node scripts/backfill-kv-to-sql.mjs",
     "verify:neon": "node scripts/verify-neon-state.mjs",
     "compare:sql": "node scripts/compare-kv-sql.mjs",
-    "pre:joint": "node scripts/pre-joint-session.mjs"
+    "sql:status": "node scripts/sql-read-status.mjs",
+    "admin:summary": "node scripts/admin-summary.mjs",
+    "pre:joint": "node scripts/pre-joint-session.mjs",
+    "google:oauth-check": "node scripts/google-oauth-check.mjs"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "google-auth-library": "^10.9.0",
     "lucide-react": "^0.575.0",
     "pg": "^8.22.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.14.0",
     "@playwright/test": "^1.52.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -42,7 +49,6 @@
     "tailwindcss": "^3.4.16",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
-    "vitest": "^3.2.4",
-    "@lhci/cli": "^0.14.0"
+    "vitest": "^3.2.4"
   }
 }

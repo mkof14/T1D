@@ -2,6 +2,7 @@ import React from 'react';
 import { Activity, Download, Heart, HeartHandshake, Monitor, Smartphone, Sparkles, Waves } from 'lucide-react';
 import type { DiabetesType, Language } from '../../types';
 import { BRAND_TAGLINE } from '../../content/landing-copy';
+import LanguageSelector from '../LanguageSelector';
 import ThemeToggle from '../ThemeToggle';
 import type { T1DTheme } from '../../lib/t1d-ui';
 import { t1dBtnPrimary, t1dBtnSecondary } from '../../lib/t1d-ui';
@@ -44,6 +45,8 @@ interface T1DFooterProps {
   sectionLegal: string;
   sectionDownload: string;
   sectionAccount: string;
+  languageSectionLabel: string;
+  changeLanguageLabel: string;
   legalNote: string;
   trustLegalLabel: string;
   productLinks: FooterLink[];
@@ -54,6 +57,7 @@ interface T1DFooterProps {
   onSignIn: () => void;
   onSignUp: (type: DiabetesType) => void;
   onToggleTheme: () => void;
+  setLang: (lang: Language) => void;
 }
 
 const FOOTER_PWA_COPY: Record<Language, string> = {
@@ -107,6 +111,8 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
   sectionLegal,
   sectionDownload,
   sectionAccount,
+  languageSectionLabel,
+  changeLanguageLabel,
   legalNote,
   trustLegalLabel,
   productLinks,
@@ -117,6 +123,7 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
   onSignIn,
   onSignUp,
   onToggleTheme,
+  setLang,
 }) => {
   const pills = PILL_COPY[lang];
   const footerNavClass = `t1d-footer-link ${isRTL ? 'text-right' : 'text-left'}`;
@@ -287,6 +294,14 @@ export const T1DFooter: React.FC<T1DFooterProps> = ({
             {copyright} © 2026 {brand}. {reserved}
           </p>
           <div className={`flex flex-wrap items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <LanguageSelector
+              current={lang}
+              onSelect={setLang}
+              label={languageSectionLabel}
+              buttonLabel={changeLanguageLabel}
+              rtl={isRTL}
+              dropUp
+            />
             <span className="t1d-footer-live">
               <Waves size={12} />
               {activePageLabel}

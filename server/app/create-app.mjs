@@ -26,11 +26,17 @@ import { handleDexcomRoutes } from './routes/dexcom.routes.mjs';
 import { handleWorkspaceRoutes } from './routes/workspace.routes.mjs';
 import { handleFeedbackRoutes } from './routes/feedback.routes.mjs';
 import { handleSystemRoutes } from './routes/system.routes.mjs';
+import { handleAdminRoutes } from './routes/admin.routes.mjs';
+import { handlePushRoutes } from './routes/push.routes.mjs';
+import { configurePushProvider } from '../services/push-provider.mjs';
+import { configurePushSubscriptionStorage } from '../services/push-subscription-service.mjs';
 import { buildWorkspacePayloadForRequest } from '../services/workspace-payload-service.mjs';
 import { createAuthStorage } from '../services/auth-storage.mjs';
 import { createHouseholdStorage } from '../services/household-storage.mjs';
 import { createDexcomPollService } from '../services/dexcom-poll-service.mjs';
+import { runEscalationPass } from '../services/escalation-service.mjs';
 import { dualWritePollReadings, dualWriteDexcomConnection, dualWriteAlertCreated } from '../infrastructure/repositories/dual-write-service.mjs';
+import { orchestrateAlertCreated } from '../services/notification-orchestrator.mjs';
 import { hashPassword, isValidPassword, verifyPassword } from '../lib/password.mjs';
 import {
   createCookieHelpers,
@@ -41,8 +47,11 @@ import {
   safeText,
 } from '../lib/request-utils.mjs';
 import { createHttpResponse, BODY_TOO_LARGE } from '../lib/http-response.mjs';
+import { initErrorReporting, captureServerException } from '../infrastructure/error-reporting.mjs';
+import { dualWriteDeleteUser } from '../infrastructure/repositories/dual-write-service.mjs';
 
 export const createApp = ({ serverDir }) => {
+  void initErrorReporting();
   const DATA_DIR = process.env.T1D_DATA_DIR || (process.env.VERCEL ? '/tmp/t1d-data' : path.join(serverDir, 'data'));
   const storage = createStorage({ dataDirectory: DATA_DIR });
   const readJson = (file, fallback) => storage.read(file, fallback);
@@ -53,6 +62,7 @@ export const createApp = ({ serverDir }) => {
   const OAUTH_STATES_FILE = path.join(DATA_DIR, 'oauth-states.json');
   const PASSWORD_RESETS_FILE = path.join(DATA_DIR, 'password-resets.json');
   const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
+  const PUSH_SUBSCRIPTIONS_FILE = path.join(DATA_DIR, 'push-subscriptions.json');
   const SESSION_COOKIE = 't1d_sid';
   const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
   const CRON_SECRET = String(process.env.T1D_CRON_SECRET || process.env.CRON_SECRET || '').trim();
@@ -181,6 +191,13 @@ export const createApp = ({ serverDir }) => {
     findHouseholdById,
   } = householdStorage;
 
+  configurePushSubscriptionStorage({
+    readJsonFn: readJson,
+    writeJsonFn: writeJson,
+    filePath: PUSH_SUBSCRIPTIONS_FILE,
+  });
+  configurePushProvider({ readHouseholds });
+
   const dexcomPollService = createDexcomPollService({
     randomBytes,
     ensureDexcomOps,
@@ -192,6 +209,7 @@ export const createApp = ({ serverDir }) => {
     dualWritePollReadings,
     dualWriteDexcomConnection,
     dualWriteAlertCreated,
+    orchestrateAlertCreated,
     t,
     readHouseholds,
     writeHouseholds,
@@ -203,6 +221,8 @@ export const createApp = ({ serverDir }) => {
     applyDexcomPollToHousehold,
     runBackgroundDexcomSync,
   } = dexcomPollService;
+
+  const runEscalationPassForAll = () => runEscalationPass(readHouseholds, writeHouseholds);
 
   const buildRouteContext = (req, res, url, lang) => ({
     req,
@@ -269,35 +289,43 @@ export const createApp = ({ serverDir }) => {
     safeEqualString,
     CRON_SECRET,
     runBackgroundDexcomSync,
+    runEscalationPass: runEscalationPassForAll,
   });
 
   const handleRequest = async (req, res) => {
-    withCors(req, res);
-    attachRequestContext(req, res);
+    try {
+      withCors(req, res);
+      attachRequestContext(req, res);
 
-    if (req.method === 'OPTIONS') {
-      sendEmpty(res, 204);
-      return;
+      if (req.method === 'OPTIONS') {
+        sendEmpty(res, 204);
+        return;
+      }
+
+      const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+      const lang = requestLang(req);
+
+      if (req.method === 'POST' && !assertMutationOrigin(req, res)) {
+        return;
+      }
+
+      if (await handleSystemRoutes(buildRouteContext(req, res, url, lang))) return;
+      if (await handleAdminRoutes(buildRouteContext(req, res, url, lang))) return;
+
+      const routeCtx = buildRouteContext(req, res, url, lang);
+      if (await handlePushRoutes(routeCtx)) return;
+      if (await handleDexcomRoutes(routeCtx)) return;
+      if (await handleAuthRoutes(routeCtx)) return;
+      if (await handleHouseholdRoutes(routeCtx)) return;
+      if (await handleWorkspaceRoutes(routeCtx)) return;
+      if (await handleFeedbackRoutes(routeCtx)) return;
+      if (await handleAlertTimelineRoutes(routeCtx)) return;
+
+      sendJson(res, 404, { error: 'Not found' });
+    } catch (error) {
+      captureServerException(error, { requestId: req.requestId, path: req.url });
+      sendJson(res, 500, { error: 'Internal server error' });
     }
-
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    const lang = requestLang(req);
-
-    if (req.method === 'POST' && !assertMutationOrigin(req, res)) {
-      return;
-    }
-
-    if (await handleSystemRoutes(buildRouteContext(req, res, url, lang))) return;
-
-    const routeCtx = buildRouteContext(req, res, url, lang);
-    if (await handleDexcomRoutes(routeCtx)) return;
-    if (await handleAuthRoutes(routeCtx)) return;
-    if (await handleHouseholdRoutes(routeCtx)) return;
-    if (await handleWorkspaceRoutes(routeCtx)) return;
-    if (await handleFeedbackRoutes(routeCtx)) return;
-    if (await handleAlertTimelineRoutes(routeCtx)) return;
-
-    sendJson(res, 404, { error: 'Not found' });
   };
 
   return {
@@ -308,5 +336,6 @@ export const createApp = ({ serverDir }) => {
     applyDexcomPollToHousehold,
     appendDexcomAudit,
     runBackgroundDexcomSync,
+    runEscalationPass: runEscalationPassForAll,
   };
 };

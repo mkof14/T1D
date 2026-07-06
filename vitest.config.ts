@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     fileParallelism: false,
+    setupFiles: ['tests/setup-env.mjs'],
     include: ['tests/unit/**/*.test.mjs', 'tests/unit/**/*.test.ts', 'tests/integration/**/*.test.mjs'],
   },
 });

@@ -28,7 +28,7 @@ const productionEnv = {
   T1D_SECRETS_KEY: secretsKey,
   T1D_GOOGLE_CLIENT_ID: local.T1D_GOOGLE_CLIENT_ID,
   T1D_GOOGLE_CLIENT_SECRET: local.T1D_GOOGLE_CLIENT_SECRET,
-  T1D_GOOGLE_REDIRECT_URI: `${PROD_URL}/api/access/google/callback`,
+  VITE_GOOGLE_CLIENT_ID: local.T1D_GOOGLE_CLIENT_ID,
   VITE_SENTRY_DSN: local.VITE_SENTRY_DSN,
   DEXCOM_USE_LIVE: local.DEXCOM_USE_LIVE || 'false',
   DEXCOM_REDIRECT_URI: `${PROD_URL}/api/dexcom/oauth/callback`,

@@ -21,6 +21,7 @@ interface MemberZoneShellProps {
   onBackToPublic: () => void;
   onSignUp: (type: DiabetesType) => void;
   children: React.ReactNode;
+  hero?: React.ReactNode;
 }
 
 export const MemberZoneShell: React.FC<MemberZoneShellProps> = ({
@@ -35,6 +36,7 @@ export const MemberZoneShell: React.FC<MemberZoneShellProps> = ({
   onAccountAction,
   onBackToPublic,
   onSignUp,
+  hero,
   children,
 }) => {
   const chrome = buildPublicSiteChrome(lang);
@@ -66,6 +68,7 @@ export const MemberZoneShell: React.FC<MemberZoneShellProps> = ({
         uiCopy={chrome.copy.ui}
         diabetesType={diabetesType}
       />
+      {hero ? <div className="relative z-10 w-full">{hero}</div> : null}
       <main className={`t1d-container relative z-10 flex-1 pt-4 md:pt-5 pb-10 ${memberLayoutTypeClass(diabetesType)}`}>
         {children}
       </main>
@@ -102,6 +105,9 @@ export const MemberZoneShell: React.FC<MemberZoneShellProps> = ({
         onSignIn={onAccountAction}
         onSignUp={onSignUp}
         onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        setLang={setLang}
+        languageSectionLabel={chrome.copy.ui.selectLanguage}
+        changeLanguageLabel={chrome.copy.ui.changeLanguage}
       />
     </div>
   );

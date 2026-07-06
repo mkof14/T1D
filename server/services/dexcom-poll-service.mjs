@@ -9,6 +9,7 @@ export const createDexcomPollService = ({
   dualWritePollReadings,
   dualWriteDexcomConnection,
   dualWriteAlertCreated,
+  orchestrateAlertCreated,
   t,
   readHouseholds,
   writeHouseholds,
@@ -82,6 +83,21 @@ export const createDexcomPollService = ({
       const alertWriteResult = await dualWriteAlertCreated(alertedHousehold, alertCreated, decision);
       if (!alertWriteResult.ok && !alertWriteResult.skipped) {
         console.warn('[t1d-api] alert dual-write failed', alertWriteResult.error);
+      }
+      if (orchestrateAlertCreated) {
+        const primaryContact = alertedHousehold.safetyState?.responderOwnership || {};
+        void orchestrateAlertCreated({
+          householdId: alertedHousehold.id,
+          alertId: alertCreated.id,
+          primaryContact: {
+            role: primaryContact.primaryRole || 'parent',
+            name: primaryContact.primaryName || 'Primary contact',
+          },
+          payload: {
+            level: alertCreated.level,
+            reason: alertCreated.reason,
+          },
+        });
       }
     }
     return alertedHousehold;

@@ -11,6 +11,7 @@ export const defaultSafetyPreferences = (diabetesType = 'type1') => {
       dayPrimaryContact: 'parent',
       nightPrimaryContact: 'parent',
       glucoseUnit: 'mmol/L',
+      contactPhones: { parent: '', adult: '', caregiver: '' },
     };
   }
 
@@ -20,6 +21,7 @@ export const defaultSafetyPreferences = (diabetesType = 'type1') => {
     caregiverDelaySeconds: 60,
     dayPrimaryContact: 'parent',
     nightPrimaryContact: 'parent',
-    glucoseUnit: 'mmol/L',
+    glucoseUnit: 'mg/dL',
+    contactPhones: { parent: '', adult: '', caregiver: '' },
   };
 };

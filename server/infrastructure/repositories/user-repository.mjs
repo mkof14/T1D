@@ -36,3 +36,12 @@ export const upsertUserRow = async (pool, user) => {
 
   return { ok: true, skipped: false };
 };
+
+export const deleteUserRow = async (pool, userId) => {
+  if (!pool || !userId) {
+    return { ok: false, skipped: true, reason: 'missing_user' };
+  }
+
+  await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+  return { ok: true, skipped: false };
+};

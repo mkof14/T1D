@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { confirmPasswordReset, getGoogleAuthStatus, joinHousehold, requestPasswordReset, saveHousehold, signIn, signUp, startGoogleAuth } from '../lib/api';
+import { confirmPasswordReset, getGoogleAuthStatus, joinHousehold, requestPasswordReset, saveHousehold, signIn, signInWithGoogle, signUp } from '../lib/api';
 import { AUTH_SOCIAL_COPY, COPY, RESET_COPY, type AccessCopy } from '../content/access-copy';
 import { MEMBER_PATH_COPY, TYPE2_ACCESS_LABELS } from '../content/member-path-copy';
 import { BRAND_TAGLINE } from '../content/landing-copy';
@@ -9,12 +9,13 @@ import { MEMBER_CHROME_COPY } from '../content/member-chrome-copy';
 import { buildPublicSiteChrome } from '../lib/public-site-chrome';
 import { Language, ROLE_LABELS, RTL_LANGUAGES, type DiabetesType, type UserRole } from '../types';
 import { MemberZoneShell } from './layout/MemberZoneShell';
-import { GoogleSignInButton } from './auth/GoogleSignInButton';
+import { GoogleSignInPanel } from './auth/GoogleSignInPanel';
 import { PasswordField } from './auth/PasswordField';
 import { getRoleLabels } from '../lib/role-labels';
 import { createInitialHouseholdForm, getHouseholdSetupSectionCopy, HouseholdSetupFields, type HouseholdFormState } from './HouseholdSetupFields';
 import { t1dBtnGhost, t1dBtnPrimary, t1dInput, t1dMemberLayout, t1dSoftLabel } from '../lib/t1d-ui';
-import { PageHeroBanner } from './layout/PageHeroBanner';
+import { MemberPageHero } from './layout/MemberPageHero';
+import { MEMBER_ACCESS_HERO } from '../lib/member-theme-visuals';
 
 type Mode = 'signin' | 'signup';
 
@@ -87,6 +88,7 @@ export const AccessView: React.FC<AccessViewProps> = ({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
   const [resetToken, setResetToken] = useState('');
   const [resetNotice, setResetNotice] = useState('');
@@ -107,35 +109,44 @@ export const AccessView: React.FC<AccessViewProps> = ({
 
   useEffect(() => {
     getGoogleAuthStatus()
-      .then((response) => setGoogleEnabled(response.enabled))
+      .then((response) => {
+        setGoogleEnabled(response.enabled);
+        setGoogleClientId(response.clientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '');
+      })
       .catch(() => setGoogleEnabled(false));
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const googleAuth = params.get('google_auth');
-    if (googleAuth === 'error') {
-      setError(socialCopy.googleFailed);
-    }
-    if (googleAuth === 'no_account') {
-      setError(socialCopy.googleNoAccount);
-    }
-    if (googleAuth) {
-      params.delete('google_auth');
-      const nextSearch = params.toString();
-      window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
-    }
-  }, [socialCopy.googleFailed, socialCopy.googleNoAccount]);
-
-  const cardClass = theme === 'dark' ? 't1d-auth-card t1d-auth-card--dark' : 't1d-auth-card';
-
-  const handleGoogleSignIn = () => {
+  const handleGoogleCredential = async (credential: string) => {
     if (!googleEnabled) {
       setError(socialCopy.googleUnavailable);
       return;
     }
-    startGoogleAuth(mode, mode === 'signup' ? role : undefined);
+
+    setError('');
+    setBusy(true);
+    try {
+      const response = await signInWithGoogle({
+        credential,
+        mode,
+        role: mode === 'signup' ? role : undefined,
+      });
+      onSuccess({ ...response.user, password: '' }, { householdReady: response.householdReady });
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : '';
+      if (message === 'no_account') {
+        setError(socialCopy.googleNoAccount);
+      } else {
+        setError(socialCopy.googleFailed);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cardClass = theme === 'dark' ? 't1d-auth-card t1d-auth-card--dark' : 't1d-auth-card';
+
+  const handleGoogleError = () => {
+    setError(socialCopy.googleFailed);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -186,23 +197,21 @@ export const AccessView: React.FC<AccessViewProps> = ({
       onAccountAction={() => onModeChange('signin')}
       onBackToPublic={onBack}
       onSignUp={onSignUp}
+      hero={(
+        <MemberPageHero
+          variant={MEMBER_ACCESS_HERO[mode]}
+          theme={theme}
+          isRTL={isRTL}
+          diabetesType={presetType}
+          eyebrow={presetType && pathCopy ? pathCopy.badge[presetType] : BRAND_TAGLINE[lang]}
+          title={heroTitle}
+          subtitle={heroSubtitle}
+        />
+      )}
     >
       <div className={`${t1dMemberLayout()} ${memberLayoutTypeClass(presetType)} relative`}>
-        <div className={`t1d-auth-layout relative ${isRTL ? 'text-right' : 'text-left'}`}>
-        <div className="t1d-auth-layout__hero">
-          <PageHeroBanner
-            variant={mode === 'signin' ? 'access-signin' : 'access-signup'}
-            theme={theme}
-            isRTL={isRTL}
-            compact
-            bleed={false}
-            diabetesType={presetType}
-            eyebrow={presetType && pathCopy ? pathCopy.badge[presetType] : BRAND_TAGLINE[lang]}
-            title={heroTitle}
-            subtitle={heroSubtitle}
-          />
-        </div>
-        <div className="t1d-auth-layout__panel">
+        <div className={`t1d-auth-layout relative max-w-xl mx-auto ${isRTL ? 'text-right' : 'text-left'}`}>
+        <div className="t1d-auth-layout__panel w-full">
         <div className="t1d-auth-panel">
           <button type="button" onClick={onBack} className={`${t1dBtnGhost(theme)} mb-4`}>
             {copy.back}
@@ -212,11 +221,14 @@ export const AccessView: React.FC<AccessViewProps> = ({
             <h1 className="sr-only">{copy.title}</h1>
 
             <div className="space-y-5">
-              <GoogleSignInButton
-                label={socialCopy.google}
-                disabled={busy}
-                onClick={handleGoogleSignIn}
-              />
+              {googleEnabled && googleClientId ? (
+                <GoogleSignInPanel
+                  clientId={googleClientId}
+                  disabled={busy}
+                  onCredential={handleGoogleCredential}
+                  onError={handleGoogleError}
+                />
+              ) : null}
               <div className="t1d-auth-divider">{socialCopy.orEmail}</div>
 
               <form className="space-y-5" onSubmit={handleSubmit}>

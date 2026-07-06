@@ -9,7 +9,7 @@ import { MEMBER_CHROME_COPY } from '../content/member-chrome-copy';
 import { buildPublicSiteChrome } from '../lib/public-site-chrome';
 import { RTL_LANGUAGES, type DiabetesType, type Language, type UserRole } from '../types';
 import { t1dBtnPrimary, t1dCard, t1dInput, t1dMemberLayout, t1dSoftLabel } from '../lib/t1d-ui';
-import { PageHeroBanner } from './layout/PageHeroBanner';
+import { MemberPageHero } from './layout/MemberPageHero';
 import { MemberZoneShell } from './layout/MemberZoneShell';
 import { createInitialHouseholdForm, HouseholdSetupFields } from './HouseholdSetupFields';
 import { memberLayoutTypeClass } from '../lib/hero-path';
@@ -386,21 +386,19 @@ export const HouseholdSetupView: React.FC<HouseholdSetupViewProps> = ({
       onAccountAction={() => onBack?.()}
       onBackToPublic={() => onBack?.()}
       onSignUp={onSignUp}
-    >
-      <div className={`${t1dMemberLayout()} ${memberLayoutTypeClass(presetType)} relative`}>
-        <div className="t1d-auth-layout__hero">
-        <PageHeroBanner
+      hero={(
+        <MemberPageHero
           variant="setup"
           theme={theme}
           isRTL={isRTL}
-          compact
-          bleed={false}
           diabetesType={presetType}
           eyebrow={presetType ? MEMBER_PATH_COPY[lang].badge[presetType] : copy.eyebrow}
           title={pathCopy?.title ?? copy.title}
           subtitle={flow === 'join' ? flowCopy.joinSubtitle : (pathCopy?.subtitle ?? `${copy.subtitle} ${roleName}.`)}
         />
-        </div>
+      )}
+    >
+      <div className={`${t1dMemberLayout()} ${memberLayoutTypeClass(presetType)} relative`}>
         <section className={`${t1dCard(theme, 'mint')} t1d-workspace-section ${theme === 'dark' ? 't1d-workspace-section--dark' : 't1d-workspace-section--light'} p-7 md:p-9 ${isRTL ? 'text-right' : 'text-left'}`}>
           <div className="grid gap-8 lg:grid-cols-2">
             <div className="space-y-4">

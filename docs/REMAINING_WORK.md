@@ -1,115 +1,55 @@
-# Remaining Work — After Autonomous Pass #3
+# Remaining Work — After GPT Plan Pass #5
 
 Updated: 2026-07-05
 
-## Completed without you (this pass)
+## Completed in this pass
 
-- **Phase D+ household SQL read** — `findHouseholdByIdFromSql` + `findHouseholdById` merges relational metadata (name, invite, members) onto KV documents; safety/dexcom stay KV-only
-- **Shadow mode** — logs `[t1d-api] household sql-read shadow mismatch` when KV/SQL fingerprints differ
-- **Routes** — workspace + timeline reads use `findHouseholdById`; timeline supports `patientId=me`
+- **WorkspaceView refactor (Phase 9 cont.)** — extracted `WorkspaceFamilySection` + `WorkspaceHistorySection`; `WorkspaceView` ~786 → ~680 LOC
+- **OpenAPI** — documented `/push/config`, `/push/subscribe`, `/push/unsubscribe`
+- **Vitest env** — `tests/setup-env.mjs` loads `.env.local` so Postgres integration tests run when `DATABASE_URL` is set
+- **Push settings UI** — workspace settings panel + service worker (`/sw.js`)
+- **Admin UI shell** — `/admin` read-only dashboard (summary + households table, Bearer token gate)
+- **Admin console (read-only API)** — `GET /api/admin/summary`, `GET /api/admin/households` (Bearer `T1D_CRON_SECRET` or `T1D_ADMIN_SECRET`)
+- **SQL read status script** — `npm run sql:status` reports shadow/primary mode + next steps
+- **verify:neon** — counts `notification_deliveries` and `escalations`
+- **Integration tests** — account delete + admin summary
+- **E2E** — T2 signup path, Google auth status endpoint
 
-## Completed without you (prior pass)
+## Completed in prior pass (#4)
 
-- **`create-app.mjs`** — full API bootstrap extracted from `index.mjs` (~35-line entrypoint)
-- **Integration tests** — duplicate signup 409 + health `sqlRead` field
-
-## Completed without you (prior pass)
-
-- **HTTP/password libs** — extracted `password.mjs`, `request-utils.mjs`, `http-response.mjs` from `index.mjs`
-- **Default member name** — signup/Google fallback uses `Steady Member` instead of `T1D Member`
-- **Password unit tests** added
-
-## Completed without you (prior pass)
-
-- **AccessView** — maps API duplicate-account error to localized Steady copy
-- **post-deploy smoke** — defaults to prod URL; checks `storage`, `sqlRead`, OpenAPI
-- **`npm run pre:joint`** — local Neon parity check before joint session
-
-## Completed without you (prior pass)
-
-- **Service extraction** — `household-storage.mjs` + `dexcom-poll-service.mjs` (slimmer `index.mjs`)
-- **Steady branding** — sign-in, signup, workspace route titles in all 11 languages
-
-## Completed without you (prior pass)
-
-- **Bug fix:** alert timeline mutations receive `persistHouseholdUpdate` via shared route context
-- **Backfill** — also syncs historical `audit-log.json` events and alert entries from household `eventLog`
-- **Integration test** — acknowledge endpoint returns 409 when no active alert (guards route wiring)
-
-## Completed without you (prior pass)
-
-- **Audit SQL dual-write** — safety/nutrition audit events mirrored to `audit_events` table
-- **compare:sql** — reports audit parity as informational note (historical KV events may differ)
-- **JOINT_SESSION.md** — backfill + shadow mode steps after Neon rotation
-
-## Completed without you (prior pass)
-
-- **Alert SQL dual-write** — new alerts on Dexcom poll + responder actions mirrored to relational tables
-- **`persistHouseholdRecord`** — household setup/join/preferences use centralized SQL mirror
-- **`npm run compare:sql`** — KV vs SQL row count parity check for households/members/users
-
-## Completed without you (prior pass)
-
-- **Dexcom SQL dual-write** — `device_connections` + `oauth_credentials` synced on household updates and Dexcom poll
-- **`persistHouseholdUpdate`** — central helper mirrors household + Dexcom to SQL from dexcom/workspace/timeline routes
-- **Backfill** — includes Dexcom connection rows; verify script counts `device_connections` / `oauth_credentials`
-- **Vercel env sync** — defaults `T1D_SQL_READ_SHADOW=true` on production (override in `.env.local`)
-
-## Completed without you (prior pass)
-
-- **Phase D (partial): SQL read path** for auth — session + user lookup from Postgres when `T1D_SQL_READ=true`, KV fallback
-- **Shadow mode** — `T1D_SQL_READ_SHADOW=true` logs KV/SQL mismatches without switching reads
-- **Sign-in/sign-up** can resolve users by email from SQL when primary read is enabled
-- **Health** exposes `sqlRead: off|shadow|primary`
-- **Preferences** now mirrors household snapshot to SQL
-
-## Completed without you (prior pass)
-
-- **Household members SQL sync** — `syncHouseholdMembers` on every `ensureHouseholdRow` (setup/join, backfill, Dexcom poll)
-- **Session SQL dual-write** — create/revoke sessions mirrored to `sessions` table
-- **Verify script** — `npm run verify:neon` now includes `household_members` + active `sessions` counts
-
-## Completed without you (prior pass)
-
-- **Household SQL dual-write** on setup/join (`dualWriteHouseholdSnapshot`)
-- **`npm run verify:neon`** + `docs/JOINT_SESSION.md`
-- **Frontend timeline** wired to `GET /api/timeline/me` via `EventTimeline.tsx`
-- **Alert actions** in timeline UI: acknowledge, take ownership, resolve
-- **Dual-write skeleton** for `glucose_readings` in `server/infrastructure/repositories/glucose-reading-repository.mjs`
-- **Dual-write on Dexcom poll** via `dual-write-service.mjs` (household upsert + new readings)
-- **Backfill script:** `npm run db:backfill` (`scripts/backfill-kv-to-sql.mjs`)
-- **Route extraction:** auth, household, dexcom, workspace, feedback, system → `server/app/routes/`
-- **Workspace payload** moved to `server/services/workspace-payload-service.mjs`
-- **Auth storage** extracted to `server/services/auth-storage.mjs` with user SQL dual-write
-- **Tests:** timeline API integration + repository unit tests (run `npm run test:unit`)
+- **Notification orchestrator** — alert creation + escalation + responder actions queue in-app + push/SMS placeholders; SQL dual-write to `notification_deliveries`
+- **Escalation service** — timeout-based backup escalation wired into cron + background Dexcom worker
+- **Alert engine** — `notifiedAt` timestamp for escalation timing
+- **Account self-deletion** — `POST /api/account/delete` + settings UI (11 languages)
+- **Server error reporting** — optional `@sentry/node` init via `SENTRY_DSN` / `T1D_SENTRY_DSN` / `VITE_SENTRY_DSN`
+- **E2E** — password reset request/confirm flow
+- **Unit tests** — escalation service + notification orchestrator
 
 ## Completed without you (prior passes)
 
-- **Git:** all hardening + UX changes committed
-- **Beta/medical banner** in workspace (11 languages, dismissible)
-- **Production architecture:** domain modules, timeline API, migrations (`91b6190`)
-- **Production:** deployed with `storage: postgres`
+See prior sections in git history and `docs/IMPLEMENTATION_PLAN.md` — domain modules, timeline API, SQL dual-write, security hardening, 86+ tests.
 
 ---
 
 ## Requires your accounts (cannot automate)
 
 ### 1. Neon password rotation ⚠️
-Password was exposed in chat. Rotate in Neon Console → update `DATABASE_URL` in `.env.local` → `node scripts/sync-vercel-env.mjs`
+Rotate in Neon Console → update `DATABASE_URL` → `node scripts/sync-vercel-env.mjs`
 
 ### 2. Google OAuth redirect
-[Google Cloud Console](https://console.cloud.google.com/) → OAuth client → add:
+Add to Google Cloud Console:
 ```
 https://t1-d.vercel.app/api/access/google/callback
 ```
 
 ### 3. Dexcom live CGM
-- Production app credentials from Dexcom developer portal
-- Vercel env: `DEXCOM_CLIENT_ID`, `DEXCOM_CLIENT_SECRET`, `DEXCOM_USE_LIVE=true`
-- Redirect: `https://t1-d.vercel.app/api/dexcom/oauth/callback`
+Vercel env: `DEXCOM_CLIENT_ID`, `DEXCOM_CLIENT_SECRET`, `DEXCOM_USE_LIVE=true`
 
-### 4. Upstash (verify)
-Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limits look wrong.
+### 4. Push/SMS providers
+Set VAPID keys + `T1D_VAPID_SUBJECT`, enable push in workspace settings. For SMS add E.164 numbers per role and Twilio env vars.
+
+### 5. Sentry DSN (optional)
+Set `SENTRY_DSN` or `T1D_SENTRY_DSN` on Vercel for server-side errors.
 
 ---
 
@@ -117,8 +57,10 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 
 | Phase | Task |
 |-------|------|
-| **D** | Enable `T1D_SQL_READ_SHADOW=true` on prod, then `T1D_SQL_READ=true` after parity clean |
-| **D+** | Household metadata read from SQL when `T1D_SQL_READ=true` (merged with KV for safety/dexcom); shadow via existing flags |
+| **D (local)** | Set `T1D_SQL_READ_SHADOW=true` in `.env.local` → exercise auth/session locally → prod only when ready (`npm run sql:status`) |
+| ~~**7**~~ | ~~Wire real push/SMS provider adapters~~ — done; needs VAPID + Twilio on prod |
+| ~~**9**~~ | ~~Split `WorkspaceView` / `App.tsx`~~ — done (copy + sections + `useT1DAppController`) |
+| ~~**12**~~ | ~~Admin UI shell on top of `/api/admin/*`~~ — done at `/admin` |
 
 ---
 
@@ -129,16 +71,13 @@ Health shows `rateLimit: upstash` — likely OK. Confirm dashboard if rate limit
 | **Medical** | Alert thresholds review with advisor; escalation testing with real families |
 | **Legal i18n** | Translate privacy/terms/medical bodies (labels done, bodies EN-only) |
 | **Knowledge** | Complete articles for ru, uk, zh, ja, pt, he, ar |
-| **Branding** | App route titles unified to Steady (11 languages) |
-| **Monitoring** | Optional `@sentry/react` package; server-side Sentry for API |
-| **Features** | Push/SMS alerts, real nutrition API, branded PWA icons |
-| **Compliance** | Legal review for target markets; account self-deletion flow |
-| **E2E** | Password reset, Google OAuth, Dexcom OAuth, T2 flows |
+| **E2E** | Google OAuth, Dexcom OAuth live, T2 full paths on staging |
+| **Compliance** | Legal review for target markets |
 
 ---
 
 ## Recommended next step together
 
-**15-minute session:** follow `docs/JOINT_SESSION.md` — Neon password rotation + Google OAuth redirect URI.
+**15-minute session:** `docs/JOINT_SESSION.md` — Neon rotation + Google OAuth redirect.
 
-Then Dexcom live when you have developer credentials.
+Then enable SQL shadow on prod and watch logs for parity.

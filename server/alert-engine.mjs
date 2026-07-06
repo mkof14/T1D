@@ -64,6 +64,7 @@ export const applyAlertEvaluation = (household) => {
         primaryRole: primaryContact.role,
         primaryName: primaryContact.name,
         alertId: alertEvent.id,
+        notifiedAt: new Date().toISOString(),
       },
     };
 
