@@ -113,6 +113,35 @@
   border-color: rgba(245, 158, 11, 0.28);
 }
 
+.t1d-type-widget--dark.t1d-type-widget--t1-low {
+  background: linear-gradient(165deg, rgba(6, 78, 59, 0.42), rgba(15, 23, 42, 0.88));
+  border-color: rgba(52, 211, 153, 0.35);
+  color: rgb(209 250 229);
+}
+
+.t1d-type-widget--dark.t1d-type-widget--t1-low .t1d-soft-label--dark {
+  color: rgb(167 243 208);
+}
+
+.t1d-type-widget--dark.t1d-type-widget--t2-carbs {
+  background: linear-gradient(165deg, rgba(124, 45, 18, 0.38), rgba(15, 23, 42, 0.88));
+  border-color: rgba(251, 146, 60, 0.35);
+  color: rgb(255 237 213);
+}
+
+.t1d-type-widget--dark.t1d-type-widget--t2-carbs .t1d-soft-label--dark {
+  color: rgb(253 186 116);
+}
+
+.t1d-type-widget--dark.t1d-type-widget--t2-high {
+  background: linear-gradient(165deg, rgba(154, 52, 18, 0.32), rgba(15, 23, 42, 0.88));
+  color: rgb(255 237 213);
+}
+
+.t1d-type-widget--dark.t1d-type-widget--t2-high .t1d-soft-label--dark {
+  color: rgb(253 186 116);
+}
+
 .t1d-mode-chip {
   display: inline-flex;
   align-items: center;
